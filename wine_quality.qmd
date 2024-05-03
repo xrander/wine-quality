@@ -1,0 +1,118 @@
+---
+title: "The Algorithmic Grape"
+subtitle: "Decoding Wine Quality with Machine Learning"
+title-block-banner: true
+title-block-banner-color: "orangered"
+author: "Olamide Adu"
+date: today
+date-format: "MMMM DD, YYYY"
+format: 
+    html:
+        theme: 
+          light: sandstone
+          dark: darkly
+---
+
+
+# Introduction
+<img src= "image/wine_chemical.webp" alt = "wine qualities with chemicals" width = 90% height = 70%> 
+<br>
+Wine appreciation is an art form enjoyed by many. However, beyond the subjective experience of taste, there lies a science behind wine quality. Winemakers strive to produce exceptional vintages by carefully controlling various factors during the production process. This project explores the fascinating world of wine quality, specifically focusing on the ability to predict it based on measurable chemical properties.
+
+## Objective
+This project aims to develop a model that can estimate the quality of a wine using its chemical composition. By analyzing features such as acidity, residual sugar content, and sulfur dioxide levels, we aim to unlock valuable insights into the factors that contribute to a superior wine. This model can potentially benefit wine producers, retailers, and even consumers seeking a more informed approach to wine selection.
+
+# Data
+## Data Source
+The data for this project was obtained from the [**UCI Machine Learning Repository**](https://archive.ics.uci.edu), a renowned resource for publicly available datasets. This repository offers a wealth of datasets for various machine learning tasks, making it a valuable resource for researchers and data scientists.
+
+The specific dataset we utilized is titled [**Wine Quality**](https://archive.ics.uci.edu/dataset/186/wine+quality) and focuses on Portuguese **Vinho Verde** wines. <br>
+<img src= "image/vinho_logo.jpg" alt= "Vinho wine logo" width = 90% height = 50%>
+<br>
+
+Vinho Verde is a light-bodied wine known for its crisp acidity and refreshing taste. The dataset encompasses two separate datasets, one for red wines and another for white wines. For this project, we chose to focus on the white wine dataset.
+
+## Data Definition
+The dataset contains more than 4500 wine samples, each characterized by 11 chemical properties measured during the winemaking process. These features include factors like:
+
+- **Fixed Acidity**: Level of acidity due to tartaric acid.
+
+- **Volatile Acidity**: Level of acidity due to volatile acids like acetic acid.
+
+- **Alcohol**: Percentage of alcohol content by volume
+
+- **Residual Sugar**: Amount of remaining sugar after fermentation.
+
+- **pH**: Measure of acidity on a logarithmic scale.
+
+- **Citric Acid**: Minute quantity naturally present in grapes. Winemakers may add small amounts to increase tartness and prevent haze formation.
+
+- **Chlorides**: Level of chloride salts that can influence a wine's saltiness and bitterness.
+
+- **Free Sulfur Dioxide**: Amount of unbound sulfur dioxide (SO2) gas, a preservative commonly used to prevent spoilage by bacteria and oxidation.
+
+- **Total Sulfur Dioxide**: The total level of SO2 gas, including both free and bound forms.
+
+- **Density**: The relative density of the wine compared to water. It can be an indicator of the wine's alcohol content and sugar level.
+
+- **Sulphates**: The level of sulfate salts, which can influence a wine's overall mouthfeel and perception of bitterness.
+
+- **Quality**: This is the target variable, a score between 0 and 10 representing the perceived sensory quality of the wine according to human experts. This score serves as the target variable for our machine learning model, allowing us to predict the quality of a new wine based on its chemical makeup.
+
+## Libraries
+We need to load the necessary libraries needed for our analysis
+```{r}
+#| label: import-libraries
+#| message: false
+#| warning: false
+
+library(pacman)
+
+p_load(tidyverse, tidymodels, gt)
+```
+
+
+# Exploratory Data Analysis
+We import the data and take a preview of our data. It can be noticed in the code chunk below that the package `janitor` was not loaded but explicitly called, and that's because the package is needed once. This will continue for packages that are needed once.
+```{r}
+#| label: import-data
+wine_tbl <- read_csv2("data/winequality-white.csv") |> 
+  janitor::clean_names()
+```
+
+```{r}
+#| label: tbl-data-preview
+#| tbl-cap: "Data Preview"
+
+head(wine_tbl) |> 
+  gt() |> 
+  cols_label(
+    fixed_acidity = "Fixed",
+    volatile_acidity = "Volatile",
+    citric_acid = "Citric Acid",
+    residual_sugar = "Residual Sugar",
+    chlorides = "Chlorides",
+    free_sulfur_dioxide = "Free",
+    total_sulfur_dioxide = "Total",
+    density = "Density",
+    p_h = "pH",
+    sulphates = "Sulphates",
+    alcohol = "Alcohol",
+    quality = "Quality"
+  ) |> 
+  tab_spanner(
+    label = "Acidity",
+    columns = contains("acidity")
+  ) |> 
+  tab_spanner(
+    label = "Sulfur dioxide",
+    columns = contains("dioxide")
+  ) |> 
+  tab_header(
+    title = "Wine Quality Data Preview"
+  )
+```
+```{r}
+names(wine_tbl)
+```
+
