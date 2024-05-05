@@ -64,7 +64,7 @@ The dataset contains more than 4500 wine samples, each characterized by 11 chemi
 
 - **Quality**: This is the target variable, a score between 0 and 10 representing the perceived sensory quality of the wine according to human experts. This score serves as the target variable for our machine learning model, allowing us to predict the quality of a new wine based on its chemical makeup.
 
-## Setting Up the Analysis Environment
+## Setting up the Analysis Environment
 To begin our analysis, we'll import essential libraries using the pacman package for efficient dependency management.
 ```{r}
 #| label: import-libraries
