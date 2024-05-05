@@ -4,13 +4,18 @@ subtitle: "Decoding Wine Quality with Machine Learning"
 title-block-banner: true
 title-block-banner-color: "orangered"
 author: "Olamide Adu"
-date: today
+date: May 03, 2024
+date-modified: today
 date-format: "MMMM DD, YYYY"
 format: 
     html:
-        theme: 
+      theme:
           light: sandstone
           dark: darkly
+      include-in-header:
+        - text: <link rel="shortcut icon" href="image/favicon.ico" />
+execute: 
+  cache: true
 ---
 
 
@@ -59,8 +64,8 @@ The dataset contains more than 4500 wine samples, each characterized by 11 chemi
 
 - **Quality**: This is the target variable, a score between 0 and 10 representing the perceived sensory quality of the wine according to human experts. This score serves as the target variable for our machine learning model, allowing us to predict the quality of a new wine based on its chemical makeup.
 
-## Libraries
-We need to load the necessary libraries needed for our analysis
+## Setting Up the Analysis Environment
+To begin our analysis, we'll import essential libraries using the pacman package for efficient dependency management.
 ```{r}
 #| label: import-libraries
 #| message: false
@@ -68,18 +73,22 @@ We need to load the necessary libraries needed for our analysis
 
 library(pacman)
 
-p_load(tidyverse, tidymodels, gt)
+p_load(tidyverse, tidymodels, gt, kableExtra)
 ```
 
 
-# Exploratory Data Analysis
-We import the data and take a preview of our data. It can be noticed in the code chunk below that the package `janitor` was not loaded but explicitly called, and that's because the package is needed once. This will continue for packages that are needed once.
+# Exploring the Data
+Next, we'll import the wine quality dataset and get a glimpse of its contents. Here, we directly use the `janitor` package because it's only needed for this specific step. This approach avoids unnecessary library loading throughout the document.
 ```{r}
 #| label: import-data
-wine_tbl <- read_csv2("data/winequality-white.csv") |> 
+#| message: false
+#| warning: false
+wine_tbl <- read_delim("data/winequality-white.csv", delim = ";") |> 
   janitor::clean_names()
 ```
 
+## Data Inspection: A Crucial Step
+A crucial step in data analysis, after defining our goals and collecting data, is to inspect its quality and structure. This involves examining the data to identify potential issues like missing values, inconsistencies, or formatting errors. @tbl-data-preview below gives a preview of our data.
 ```{r}
 #| label: tbl-data-preview
 #| tbl-cap: "Data Preview"
@@ -109,10 +118,228 @@ head(wine_tbl) |>
     columns = contains("dioxide")
   ) |> 
   tab_header(
-    title = "Wine Quality Data Preview"
-  )
-```
-```{r}
-names(wine_tbl)
+    title = "Data Preview: Wine Quality for White Wine"
+  ) |> 
+  opt_stylize(
+    style = 3,
+    color = "gray"
+  ) |> 
+  as_raw_html()
 ```
 
+```{r}
+#| label: data-summary
+glimpse(wine_tbl)
+```
+Using the `glimpse` function we can get a high-level overview of the wine quality data and the data follows the expected structure in the data definition. We have `r dim(wine_tbl)[1]` rows and `r dim(wine_tbl)[2]` columns. All the columns are numeric variables.
+
+```{r}
+#| label: tbl-summary
+#| tab-cap: Wine data summary
+skimr::skim(wine_tbl) |> 
+  select(-skim_type) |> 
+  gt() |> 
+  cols_label(
+    skim_variable = "Variable",
+    n_missing = "Missing Value",
+    complete_rate = "Complete",
+    numeric.mean = "Mean",
+    numeric.sd = "Standard Deviation",
+    numeric.p0 = "Min",
+    numeric.p25 = "1st Percentile",
+    numeric.p50 = "Median",
+    numeric.p75 = "3rd Percentile",
+    numeric.p100 = "Max",
+    numeric.hist = "Histogram"
+  ) |> 
+  tab_header(
+    title = "White Wine Quality Descriptive Statistics"
+  ) |> 
+  opt_stylize(
+    style = 3,
+    color = "gray"
+  ) |> 
+  as_raw_html()
+```
+
+@tbl-summary summarizes the key characteristics of our data. It reveals:
+
+- **No Missing Values**: There are no missing data points, ensuring a complete dataset for our analysis.
+
+- **Descriptive Statistics**: @tbl-summary presents various descriptive statistics for each variable. This includes the minimum and maximum values highlighting the data's range.  Additionally, the first and third quartile provides an insight of the distribution of values in the data. Finally the mean and standard deviation indicate the average and spread of each variables relative to their mean.
+
+- **Outliers**: Initial exploration of the data suggests the presence of potential outliers in several features. Specifically, the maximum values for variables `fixed_acidity`, `volatile_acidity`, `citric_acid`, `residual_sugar`, `chlorides`, `free_sulphur_dioxide`, and `total_sulfur_dioxide` seems deviate significantly from the rest of the distribution. To confirm these observations statistically, we can employ a **Grubbs' test**. This test helps us determine if these maximum values are likely outliers within the dataset. The Grubbs' test is particularly useful for identifying single outliers in a dataset that is assumed to be normally distributed.
+
+## Dealing with Outliers
+Grubbs' test assumes that the variables being tested follows a normal distribution. Before undertaking Grubbs' test, we use the `shapiro.wilk()` function to test normality and create a quantile-quantile plot to validate our test finding.
+
+```{r}
+#| label: tbl-normality-test
+#| tbl-cap: "Shapiro-wilk's normality test: All varibles are not normally distributed"
+
+normality_test <- wine_tbl |> 
+  map(~tidy(shapiro.test(.))) |> 
+  bind_rows(.id = "variable") |> 
+  select(-method) |> 
+  janitor::clean_names() |> 
+  mutate(
+    variable = str_to_title(str_replace_all(variable, "_", " "))
+  )
+actual_colnames <- colnames(normality_test)
+desired_colnames <- str_to_title(names(normality_test))
+names(desired_colnames) <- actual_colnames
+  
+gt(normality_test)  |> 
+  cols_label(.list = desired_colnames) |> 
+  tab_header(
+    title = "Shapiro-wilk Normality Test"
+  ) |> 
+  opt_stylize(
+    style = 3,
+    color = "gray"
+  ) |> 
+  as_raw_html()
+```
+
+```{r}
+#| label: fig-qqplot-var
+#| fig-cap: QQ plot of all the variables shows they are not normally distributed
+
+wine_tbl |> 
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "value"
+  ) |> 
+  ggplot(aes(sample = value)) +
+  geom_qq(alpha = .2, col = "violetred4") +
+  geom_qq_line(col = "gray3") +
+  facet_wrap(~variable, scales = "free") +
+  labs(
+    x = "Theoretical distribution",
+    y = "Sample",
+    title = "Variables are not normally distributed"
+  ) +
+  theme_minimal()
+```
+
+@tbl-normality-test shows all the 
+## Response Variable (Quality)
+
+```{r}
+#| label: fig-qual-bar
+#| fig-cap: |
+#|  Frequency of the white wine quality ratings shows that the wine is mostly rate
+#|    between 5 to 7
+wine_tbl |> 
+  ggplot(aes(quality)) +
+  geom_bar(fill = "violetred4") +
+  geom_density(
+    stat = "count",
+    col = "orangered"
+  ) +
+  scale_x_continuous(
+    breaks = seq(1, 10, 1)
+  ) +
+  labs(
+    x = "Quality",
+    y = "Frequency",
+    title = "White wine quality frequency"
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = .5, face = "bold")
+  )
+```
+
+The distribution of wine ratings in @fig-qual-bar shows a range between 3 and 9. This aligns with the finding in @tbl-summary that the median wine quality score is 6. This shows that most wines in the dataset fall around the central value.
+
+## Correlation Plot
+```{r}
+#| label: fig-corrplot
+#| fig-cap: Correlation Plot
+#| warning: false
+#| message: false
+
+GGally::ggcorr(
+  wine_tbl,
+  method = "pairwise",
+  geom = "circle",
+  palette = "Spectral",
+  max_size = 10,
+  min_size = 2,
+  label = TRUE,
+  size = 3,
+  angle = -40,
+  hjust = .95
+) +
+  ggtitle("Wine Quality Feature Correlations") +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold")
+  )
+```
+
+@fig-corrplot shows some noteworthy relationships between the wine quality variables. Here are the key observations:
+
+- **Alcohol and Density**: A strong negative correlation exists between alcohol content and density. This implies that as the alcohol level increases, the density of the wine tends to decreases.
+
+- **Total Sulfur Dioxide and Free Sulfur Dioxide**: A high positive correlation is observed between total sulfur dioxide and free sulfur dioxide. This indicates that wines with higher total sulfur dioxide content also tend to have higher levels of unbound free sulfur dioxide.
+
+```{r}
+#| label: fig-highlight-rel
+#| fig-cap: Some highlight relationship between the variables
+#| message: false
+#| warning: false
+
+a_lab <- with(wine_tbl, round(cor(alcohol, density), 1))
+b_lab <- with(wine_tbl, round(cor(total_sulfur_dioxide, free_sulfur_dioxide), 1))
+
+
+a <- wine_tbl |> 
+  ggplot(aes(alcohol, density)) +
+  geom_jitter(
+    width = 3,
+    alpha = .6
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    col = "orangered3"
+  ) +
+  geom_label(
+    aes(x = 13, y = 1.02),
+    label = a_lab,
+    col = "white",
+    fill = "violtered"
+  ) +
+  labs(
+    x = "Alcohol",
+    y = "Density",
+    title = "Wine density decreases as alcohol level increases"
+  )
+
+b <- wine_tbl |> 
+  ggplot(aes(total_sulfur_dioxide, free_sulfur_dioxide)) +
+  geom_jitter(
+    width = 3,
+    alpha = .6
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    col = "red"
+  ) +
+  geom_label(
+    aes(x = 13, y = 1.02),
+    label = a_lab,
+    col = "white",
+    fill = "violtered"
+  )
+
+
+```
+
+
+- **Residual Sugar and Density**:
+As shown in @fig-corrplot We can see some interesting relationships between the variables, alcohol and pH have high negative correlation, , while total and free sulfur have high positive correlation. We can also notice a high positive correlation between residual sugar and density. Overall there's a fair distribution of correlation across all the variables ranging from as low as ± 0.1 to ± 0.8 
