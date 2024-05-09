@@ -5,7 +5,6 @@ title-block-banner: true
 title-block-banner-color: "orangered"
 author: "Olamide Adu"
 date: May 03, 2024
-date-modified: today
 date-format: "MMMM DD, YYYY"
 format: 
     html:
@@ -16,56 +15,67 @@ format:
         - text: <link rel="shortcut icon" href="image/favicon.ico" />
 execute: 
   cache: true
+fig-width: 10
 ---
 
-
 # Introduction
-<img src= "image/wine_chemical.webp" alt = "wine qualities with chemicals" width = 90% height = 70%> 
+
+<img src="image/wine_chemical.webp" alt="wine qualities with chemicals" width="90%" height="70%"/> 
+
 <br>
+
 Wine appreciation is an art form enjoyed by many. However, beyond the subjective experience of taste, there lies a science behind wine quality. Winemakers strive to produce exceptional vintages by carefully controlling various factors during the production process. This project explores the fascinating world of wine quality, specifically focusing on the ability to predict it based on measurable chemical properties.
 
 ## Objective
+
 This project aims to develop a model that can estimate the quality of a wine using its chemical composition. By analyzing features such as acidity, residual sugar content, and sulfur dioxide levels, we aim to unlock valuable insights into the factors that contribute to a superior wine. This model can potentially benefit wine producers, retailers, and even consumers seeking a more informed approach to wine selection.
 
 # Data
+
 ## Data Source
+
 The data for this project was obtained from the [**UCI Machine Learning Repository**](https://archive.ics.uci.edu), a renowned resource for publicly available datasets. This repository offers a wealth of datasets for various machine learning tasks, making it a valuable resource for researchers and data scientists.
 
-The specific dataset we utilized is titled [**Wine Quality**](https://archive.ics.uci.edu/dataset/186/wine+quality) and focuses on Portuguese **Vinho Verde** wines. <br>
-<img src= "image/vinho_logo.jpg" alt= "Vinho wine logo" width = 90% height = 50%>
-<br>
+The specific dataset we utilized is titled [**Wine Quality**](https://archive.ics.uci.edu/dataset/186/wine+quality) and focuses on Portuguese **Vinho Verde** wines. <br> <img src="image/vinho_logo.jpg" alt="Vinho wine logo" width="90%" height="50%"/> <br>
 
 Vinho Verde is a light-bodied wine known for its crisp acidity and refreshing taste. The dataset encompasses two separate datasets, one for red wines and another for white wines. For this project, we chose to focus on the white wine dataset.
 
 ## Data Definition
+
 The dataset contains more than 4500 wine samples, each characterized by 11 chemical properties measured during the winemaking process. These features include factors like:
 
-- **Fixed Acidity**: Level of acidity due to tartaric acid.
+-   **Fixed Acidity**: Level of acidity due to tartaric acid.
 
-- **Volatile Acidity**: Level of acidity due to volatile acids like acetic acid.
+-   **Volatile Acidity**: Level of acidity due to volatile acids like acetic acid.
 
-- **Alcohol**: Percentage of alcohol content by volume
+-   **Alcohol**: Percentage of alcohol content by volume
 
-- **Residual Sugar**: Amount of remaining sugar after fermentation.
+-   **Residual Sugar**: Amount of remaining sugar after fermentation.
 
-- **pH**: Measure of acidity on a logarithmic scale.
+-   **pH**: Measure of acidity on a logarithmic scale.
 
-- **Citric Acid**: Minute quantity naturally present in grapes. Winemakers may add small amounts to increase tartness and prevent haze formation.
+-   **Citric Acid**: Minute quantity naturally present in grapes. Winemakers may add small amounts to increase tartness and prevent haze formation.
 
-- **Chlorides**: Level of chloride salts that can influence a wine's saltiness and bitterness.
+-   **Chlorides**: Level of chloride salts that can influence a wine's saltiness and bitterness.
 
-- **Free Sulfur Dioxide**: Amount of unbound sulfur dioxide (SO2) gas, a preservative commonly used to prevent spoilage by bacteria and oxidation.
+-   **Free Sulfur Dioxide**: Amount of unbound sulfur dioxide (SO2) gas, a preservative commonly used to prevent spoilage by bacteria and oxidation.
 
-- **Total Sulfur Dioxide**: The total level of SO2 gas, including both free and bound forms.
+-   **Total Sulfur Dioxide**: The total level of SO2 gas, including both free and bound forms.
 
-- **Density**: The relative density of the wine compared to water. It can be an indicator of the wine's alcohol content and sugar level.
+-   **Density**: The relative density of the wine compared to water. It can be an indicator of the wine's alcohol content and sugar level.
 
-- **Sulphates**: The level of sulfate salts, which can influence a wine's overall mouthfeel and perception of bitterness.
+-   **Sulphates**: The level of sulfate salts, which can influence a wine's overall mouth-feel and perception of bitterness.
 
-- **Quality**: This is the target variable, a score between 0 and 10 representing the perceived sensory quality of the wine according to human experts. This score serves as the target variable for our machine learning model, allowing us to predict the quality of a new wine based on its chemical makeup.
+-   **Quality**: This is the target variable, a score between 0 and 10 representing the perceived sensory quality of the wine according to human experts. This score serves as the target variable for our machine learning model, allowing us to predict the quality of a new wine based on its chemical makeup.
 
 ## Setting up the Analysis Environment
-To begin our analysis, we'll import essential libraries using the pacman package for efficient dependency management.
+
+<img src = "image/cat-wine.webp" alt="wine qualities with chemicals" width="90%" height="70%"/>
+
+<br>
+
+To begin our analysis, we'll import essential libraries using the `pacman` package for efficient dependency management.
+
 ```{r}
 #| label: import-libraries
 #| message: false
@@ -73,12 +83,13 @@ To begin our analysis, we'll import essential libraries using the pacman package
 
 library(pacman)
 
-p_load(tidyverse, tidymodels, gt, kableExtra)
+p_load(tidyverse, tidymodels, gt, kableExtra, patchwork)
 ```
 
-
 # Exploring the Data
+
 Next, we'll import the wine quality dataset and get a glimpse of its contents. Here, we directly use the `janitor` package because it's only needed for this specific step. This approach avoids unnecessary library loading throughout the document.
+
 ```{r}
 #| label: import-data
 #| message: false
@@ -88,10 +99,13 @@ wine_tbl <- read_delim("data/winequality-white.csv", delim = ";") |>
 ```
 
 ## Data Inspection: A Crucial Step
+
 A crucial step in data analysis, after defining our goals and collecting data, is to inspect its quality and structure. This involves examining the data to identify potential issues like missing values, inconsistencies, or formatting errors. @tbl-data-preview below gives a preview of our data.
+
 ```{r}
 #| label: tbl-data-preview
 #| tbl-cap: "Data Preview"
+#| echo: false
 
 head(wine_tbl) |> 
   gt() |> 
@@ -162,16 +176,81 @@ skimr::skim(wine_tbl) |>
   as_raw_html()
 ```
 
-@tbl-summary summarizes the key characteristics of our data. It reveals:
+@tbl-dat-sum summarizes the key characteristics of our data. It reveals:
 
-- **No Missing Values**: There are no missing data points, ensuring a complete dataset for our analysis.
+-   **No Missing Values**: There are no missing data points, ensuring a complete dataset for our analysis.
 
-- **Descriptive Statistics**: @tbl-summary presents various descriptive statistics for each variable. This includes the minimum and maximum values highlighting the data's range.  Additionally, the first and third quartile provides an insight of the distribution of values in the data. Finally the mean and standard deviation indicate the average and spread of each variables relative to their mean.
+-   **Descriptive Statistics**: @tbl-sum-dat presents various descriptive statistics for each variable. This includes the minimum and maximum values highlighting the data's range. Additionally, the first and third quartile provides an insight of the distribution of values in the data. Finally the mean and standard deviation indicate the average and spread of each variables relative to their mean.
 
-- **Outliers**: Initial exploration of the data suggests the presence of potential outliers in several features. Specifically, the maximum values for variables `fixed_acidity`, `volatile_acidity`, `citric_acid`, `residual_sugar`, `chlorides`, `free_sulphur_dioxide`, and `total_sulfur_dioxide` seems deviate significantly from the rest of the distribution. To confirm these observations statistically, we can employ a **Grubbs' test**. This test helps us determine if these maximum values are likely outliers within the dataset. The Grubbs' test is particularly useful for identifying single outliers in a dataset that is assumed to be normally distributed.
+-   **Outliers**: Initial exploration of the data suggests the presence of potential outliers in several features. Specifically, the maximum values for variables `fixed_acidity`, `volatile_acidity`, `citric_acid`, `residual_sugar`, `chlorides`, `free_sulphur_dioxide`, and `total_sulfur_dioxide` seems deviate significantly from the rest of the distribution.
 
-## Dealing with Outliers
-Grubbs' test assumes that the variables being tested follows a normal distribution. Before undertaking Grubbs' test, we use the `shapiro.wilk()` function to test normality and create a quantile-quantile plot to validate our test finding.
+The next step is to statistically confirm these observations, we can't rely solely on inspecting the maximum values. Instead, we'll employ appropriate outlier detection tests. Due to the fairly large data size we have, we can use either of:
+
+-   **Grubb's** test
+
+-   **Rosner's test**
+
+These outlier detection tests help us statistically determine if the observed extreme values are likely outliers within the dataset. Both tests listed here are particularly useful for identifying outliers in a dataset that is approximately normally distributed.
+
+## Univariate Inspection
+
+### Dealing with Outliers
+
+Before diving into formal tests, it's important we get a sense of our data. We can visualize each variables of our data to inspect their distribution. \#### Visual Inspection
+
+```{r}
+#| label: fig-normality-plot
+#| fig-cap: |
+#|    (a) shows the qqplot with variables like total and free sulful_dioxide and p_h
+#|    approximately following normal distribution,(b) exposes the distribution of all
+#|    variables which are mostly right-skewed.
+#| fig-subcap: 
+#|    - "QQ plot of all the variables shows they are not normally distributed"
+#|    - "histogram of all variables showing tails"
+#| layout-nrow: 2
+#| message: false
+#| warning: false
+
+wine_tbl_longer <- wine_tbl |> 
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+wine_tbl_longer |> 
+  filter(variable != "quality") |> 
+  ggplot(aes(sample = value)) +
+  geom_qq(alpha = .2, col = "violetred4") +
+  geom_qq_line(col = "gray3") +
+  facet_wrap(~variable, scales = "free") +
+  labs(
+    x = "Theoretical distribution",
+    y = "Sample",
+    title = "Variables are not normally distributed"
+  ) +
+  theme_minimal()
+
+wine_tbl_longer |> 
+  filter(variable !="quality") |> 
+  ggplot(aes(value)) +
+  facet_wrap(~variable, scales = "free") +
+  geom_histogram(fill = "burlywood", col = "black") +
+  geom_density(
+    stat = "bin",
+    col = "violetred"
+  ) +
+  labs(
+    x = "Value",
+    y = "Frequency",
+    title = "Variables are fairly normal"
+  ) +
+  theme_minimal()
+```
+
+@fig-normality-plot shows some fairly normal data, but it won't be bad to test for normality using Shapiro-wilk's test. We can also use the `qqPlot()` function from the `car` package which I really like to test for the normality.
+
+#### Shapiro Test
 
 ```{r}
 #| label: tbl-normality-test
@@ -189,7 +268,9 @@ actual_colnames <- colnames(normality_test)
 desired_colnames <- str_to_title(names(normality_test))
 names(desired_colnames) <- actual_colnames
   
-gt(normality_test)  |> 
+normality_test |> 
+  filter(variable != "Quality") |> 
+  gt()  |> 
   cols_label(.list = desired_colnames) |> 
   tab_header(
     title = "Shapiro-wilk Normality Test"
@@ -201,30 +282,45 @@ gt(normality_test)  |>
   as_raw_html()
 ```
 
+#### Cars qqPlot Test
+
 ```{r}
 #| label: fig-qqplot-var
-#| fig-cap: QQ plot of all the variables shows they are not normally distributed
+#| warning: false
+#| message: false
+#| fig-cap: Normality test with the car's package qqPlot function
+#| fig-subcap: 
+#|  - "pH"
+#|  - "alcohol"
+#| layout-nrow: 2
 
-wine_tbl |> 
-  pivot_longer(
-    cols = everything(),
-    names_to = "variable",
-    values_to = "value"
-  ) |> 
-  ggplot(aes(sample = value)) +
-  geom_qq(alpha = .2, col = "violetred4") +
-  geom_qq_line(col = "gray3") +
-  facet_wrap(~variable, scales = "free") +
-  labs(
-    x = "Theoretical distribution",
-    y = "Sample",
-    title = "Variables are not normally distributed"
-  ) +
-  theme_minimal()
+car::qqPlot(
+  wine_tbl$p_h,
+  ylab = paste0("pH"),
+  main = "Quantile-quantile plot for pH variable"
+)
+
+car::qqPlot(
+  wine_tbl$alcohol,
+  ylab = paste0("pH"),
+  main = "Quantile-quantile plot for alcohol variable"
+)
+
 ```
 
-@tbl-normality-test shows all the 
+@tbl-normality-test shows all the variables do not follow a normal distribution, @fig-qqplot-var stresses this and we can clearly see the presence of outlier.
+
+### Where Domain Knowledge Shines
+
+While our initial exploration identified potential outliers in the data, it's important to consider them in the context of wine making expertise. Domain knowledge from experienced professionals like [Cathy Howard](https://whicherridge.com.au/author/whicherridge/) suggests that the expected range for residual sugar in wine can vary widely, from as low as 0.3 g/L to over 35 g/L (as referenced in this [post](https://whicherridge.com.au/blog/what-is-residual-sugar-in-wine/)).
+
+This information helps us understand that some seemingly extreme values in our data might actually be plausible for certain wine types. Similarly, consulting resources like Waterhouse's post on ["What's in Wine"](https://waterhouse.ucdavis.edu/whats-in-wine). can provide valuable insights into the expected ranges for other wine components.
+
+Given the new information about our data and the supposed outliers we investigated we can proceed with our analysis ***thanks to domain knowledge***.
+
 ## Response Variable (Quality)
+
+There are two ways we can proceed with our analysis based on our response variable, we can either take quality as a categorical variable or a continuous variable, I prefer and will proceed with the later.
 
 ```{r}
 #| label: fig-qual-bar
@@ -233,7 +329,10 @@ wine_tbl |>
 #|    between 5 to 7
 wine_tbl |> 
   ggplot(aes(quality)) +
-  geom_bar(fill = "violetred4") +
+  geom_histogram(
+    binwidth = 1,
+    fill = "violetred4"
+  ) +
   geom_density(
     stat = "count",
     col = "orangered"
@@ -252,9 +351,12 @@ wine_tbl |>
   )
 ```
 
-The distribution of wine ratings in @fig-qual-bar shows a range between 3 and 9. This aligns with the finding in @tbl-summary that the median wine quality score is 6. This shows that most wines in the dataset fall around the central value.
+The distribution of wine ratings in @fig-qual-bar shows a range between 3 and 9. This is the same as what we have in @tbl-summary. White wines rated 6 and 5 are the most occurring wine.
 
-## Correlation Plot
+## Correlation Matrix and Relationship Between Variables
+
+It is important to see how the different variables relates to wine quality.
+
 ```{r}
 #| label: fig-corrplot
 #| fig-cap: Correlation Plot
@@ -270,7 +372,6 @@ GGally::ggcorr(
   min_size = 2,
   label = TRUE,
   size = 3,
-  angle = -40,
   hjust = .95
 ) +
   ggtitle("Wine Quality Feature Correlations") +
@@ -280,66 +381,55 @@ GGally::ggcorr(
   )
 ```
 
-@fig-corrplot shows some noteworthy relationships between the wine quality variables. Here are the key observations:
+@fig-corrplot shows some noteworthy relationships between the variables. Here are the key observations:
 
-- **Alcohol and Density**: A strong negative correlation exists between alcohol content and density. This implies that as the alcohol level increases, the density of the wine tends to decreases.
+-   **Quality and Alcohol**: Alcohol shows a moderate positive correlation with quality of wine
+-   **Alcohol and Density**: A strong negative correlation exists between alcohol content and density. This implies that as alcohol level increases, the density of the wine decreases.
+-   **Quality and Density:** There's moderate negative relationship between the quality and wine density.
+-   **Residual Sugar and Density:** The density of wine is largely affected by the amount of residual sugar present in the wine
+-   **Total Sulfur Dioxide and Free Sulfur Dioxide**: A moderate positive correlation is observed between total sulfur dioxide and free sulfur dioxide. This indicates that wines with higher total sulfur dioxide content also tend to have higher levels of unbound free sulfur dioxide.
 
-- **Total Sulfur Dioxide and Free Sulfur Dioxide**: A high positive correlation is observed between total sulfur dioxide and free sulfur dioxide. This indicates that wines with higher total sulfur dioxide content also tend to have higher levels of unbound free sulfur dioxide.
+Overall there's a fair distribution of correlation across all the variables ranging from as low as ± 0.1 to ± 0.8.
 
+# Modeling: Predicting the Perfect Potion
+<img src = "image/cat-taster.webp" alt="cat connoisseur" width="90%" height="70%"/> <br>
+
+Imagine you're a wine connoisseur, swirling a glass and trying to guess how good a wine will be. That's kind of what we're setting out to do here, but with the help of some brainy computer programs!
+
+We're going to test out four different "recipes" to predict white wine quality.  Think of them like different ways of mixing ingredients (the info we have about the wine) to come up with a final answer (how good the wine is). Here's the lowdown on each recipe:
+
+-   Ordinary Least Squares (OLS) Regression: This is a foundational linear regression model that establishes a linear relationship between the independent variables and the quality score.
+
+-   Decision Tree Model: This non-linear model uses a tree-like structure to make predictions by splitting the data based on a series of decision rules.
+
+-   Random Forest: This ensemble method combines multiple decision trees, improving accuracy and reducing overfitting compared to a single tree.
+
+-   XGBoost: This advanced ensemble technique utilizes gradient boosting to create a powerful model that can handle complex relationships within the data.
+
+
+## Data Splitting Strategy
+To ensure robust model evaluation, we'll employ a data splitting strategy. This involves dividing the dataset into two portions:
+
+-   Training Set (80%): This larger portion of the data will be used to train the models. The training process involves fitting the model parameters to the data, allowing the model to learn the underlying relationships between the features (independent variables) and the target variable (wine quality).
+
+-   Test Set (20%): This smaller portion of the data will be reserved for testing the final model performance. We will not use the test set for training the models in any way. Instead, the trained model will be applied to the test set, and its predictions will be compared to the actual quality scores to assess the model's generalizability and accuracy on unseen data.
+
+**Rationale for Splitting:**
+
+The 80/20 split is a common choice for data splitting, but depending on the size of your dataset, a 70/30 split might also be acceptable.  The key idea is to have a sufficient amount of data for both training and testing purposes. The training set allows the model to learn, while the test set provides an unbiased assessment of how well the model performs on new data. To ensure balance in the distribution of the response variable (quality) between the test and the training data, we'll execute the split taking into account the distribution of the response variable, as seen in @fig-qual-bar the response variable is unevenly distributed.
+
+To ensure reproducibility of the code, we'll also set.seed into 34433
 ```{r}
-#| label: fig-highlight-rel
-#| fig-cap: Some highlight relationship between the variables
-#| message: false
-#| warning: false
+#| label: data-splitting
 
-a_lab <- with(wine_tbl, round(cor(alcohol, density), 1))
-b_lab <- with(wine_tbl, round(cor(total_sulfur_dioxide, free_sulfur_dioxide), 1))
-
-
-a <- wine_tbl |> 
-  ggplot(aes(alcohol, density)) +
-  geom_jitter(
-    width = 3,
-    alpha = .6
-  ) +
-  geom_smooth(
-    method = "lm",
-    se = FALSE,
-    col = "orangered3"
-  ) +
-  geom_label(
-    aes(x = 13, y = 1.02),
-    label = a_lab,
-    col = "white",
-    fill = "violtered"
-  ) +
-  labs(
-    x = "Alcohol",
-    y = "Density",
-    title = "Wine density decreases as alcohol level increases"
-  )
-
-b <- wine_tbl |> 
-  ggplot(aes(total_sulfur_dioxide, free_sulfur_dioxide)) +
-  geom_jitter(
-    width = 3,
-    alpha = .6
-  ) +
-  geom_smooth(
-    method = "lm",
-    se = FALSE,
-    col = "red"
-  ) +
-  geom_label(
-    aes(x = 13, y = 1.02),
-    label = a_lab,
-    col = "white",
-    fill = "violtered"
-  )
-
-
+set.seed(34433)
+wine_split <- initial_split(wine_tbl, prop = .8, strata = quality)
+wine_train <- training(wine_split)
+wine_test <- testing(wine_split)
 ```
 
 
-- **Residual Sugar and Density**:
-As shown in @fig-corrplot We can see some interesting relationships between the variables, alcohol and pH have high negative correlation, , while total and free sulfur have high positive correlation. We can also notice a high positive correlation between residual sugar and density. Overall there's a fair distribution of correlation across all the variables ranging from as low as ± 0.1 to ± 0.8 
+
+
+
+[homepage](https://olamideadu.com)
