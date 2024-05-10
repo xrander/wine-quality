@@ -428,8 +428,82 @@ wine_train <- training(wine_split)
 wine_test <- testing(wine_split)
 ```
 
+We also need to evaluate the developed models, for this, we will use a cross-fold validation.
+```{r}
+#| label: create-crossfolds
+set.seed(33323)
+wine_folds <- vfold_cv(wine_train, v = 10)
+```
 
 
+## Model Specification
 
+To ensure a good modeling workflow, we specify the our model engines, and prepare to tune some parameters depending on the model, for example in the decision tree specification, we do not know the optimal tree depth, so we tune this parameter. Other parameters which cannot determine from the start of model fitting are also tuned, like for the random forest and the XGboost model specification.
+```{r}
+#| label: model-specs
+
+lm_reg <- linear_reg() |> # OLS specification
+  set_engine("lm") |> 
+  set_mode("regression")
+
+dec_tree <- decision_tree( # Decision tree specification
+  tree_depth = tune(),
+  cost_complexity = tune()
+) |> 
+  set_engine("rpart") |> 
+  set_mode("regression")
+
+rand_for <- rand_forest( # Random forest specification
+  trees = 1000,
+  mtry = tune(),
+  min_n = tune()
+) |> 
+  set_engine("ranger") |> 
+  set_mode("regression")
+
+xgboost <- boost_tree( # XGboost specification
+  mtry = tune(),
+  min_n = tune(),
+  loss_reduction = tune(),
+  tree_depth = tune(),
+  sample_size = tune()
+) |> 
+  set_engine("xgboost") |> 
+  set_mode("regression")
+```
+
+
+## Data Preprocessing
+After model specification, we set the necessary pre-processing based on the model specification, a good reference for recommended pre-processing can be found [here](https://www.tmwr.org/pre-proc-table). The breakdown of our pre-processing is given as:
+
+### OLS preproc
+- Perform a log transformation on the all predictors, `step_log` here.
+
+- Remove variables that is having no difference in their values - zero variance, `step_zv` here
+
+```{r}
+#| label: ols-model-preproc
+lm_spec <- recipe(
+  quality ~ .,
+  data =  wine_train
+) |> 
+  step_log(all_predictors()) |> 
+  step_zv(all_predictors())
+
+lm_spec
+```
+### Other models preproc
+Given our data structure, and the state of the data we do not need to perform any preprocessing, so we simply give our model formula.
+
+```{r}
+#| label: other-preproc
+
+oth_spec <- recipe(
+  quality ~ .,
+  data = wine_train
+)
+```
+
+###
 
 [homepage](https://olamideadu.com)
