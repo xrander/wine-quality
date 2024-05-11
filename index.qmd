@@ -436,11 +436,12 @@ wine_folds <- vfold_cv(wine_train, v = 10)
 
 ## Model Specification
 
-To ensure a good modeling workflow, we specify the our model engines, and prepare to tune some parameters depending on the model, for example in the decision tree specification, we do not know the optimal tree depth, so we tune this parameter. Other parameters which cannot determine from the start of model fitting are also tuned, like for the random forest and decision tree model specification.
+To ensure a good modeling workflow, we specify our model engines, and prepare to tune some parameters, for example, the decision tree model specification, we do not know the tree depth that would be optimal, so we tune this parameter. Other parameters which cannot be predetermine when fitting our model are also tuned.
 ```{r}
 #| label: model-specs
+#| hide: true
 
-lm_spec <- linear_reg() |> # OLS specification
+ols_spec <- linear_reg() |> # OLS specification
   set_engine("lm") |> 
   set_mode("regression")
 
@@ -448,7 +449,7 @@ dec_tree_spec <- decision_tree( # Decision tree specification
   tree_depth = tune(),
   cost_complexity = tune()
 ) |> 
-  set_engine("rpart") |> 
+  set_engine("rpart", importance = TRUE) |> 
   set_mode("regression")
 
 rand_for_spec <- rand_forest( # Random forest specification
@@ -456,37 +457,69 @@ rand_for_spec <- rand_forest( # Random forest specification
   mtry = tune(),
   min_n = tune()
 ) |> 
-  set_engine("ranger") |> 
+  set_engine("ranger", importance = TRUE) |> 
   set_mode("regression")
+
+xgboost_spec <- boost_tree(
+  mtry = tune(),
+  min_n = tune(),
+  trees = tune(),
+  learn_rate = .1
+) |> 
+  set_mode("regression") |> 
+  set_engine("xgboost", importance = TRUE)
+
+ols_spec
+dec_tree_spec
+rand_for_spec
+xgboost_spec
 
 ```
 
 
-## Data Preprocessing
-After model specification, we set the necessary pre-processing based on the model specification, a good reference for recommended pre-processing can be found [here](https://www.tmwr.org/pre-proc-table). The breakdown of our pre-processing is given as:
+## Feature Engineering
+After model specification, we do some feature engineering based on the model specification, a good reference for recommended pre-processing or feature engineering techniques for different models can be found [here](https://www.tmwr.org/pre-proc-table). For our analysis, we will have models fitted on our variables without being preprocessed and models fitted with preprocessing. 
+
+### Formula Recipe
+Here, we assume no preprocessing, even if we ideally need to preprocess for our OLS model
+
+```{r}
+#| label: no-preproc
+
+formula_rec <- recipe(
+  quality ~ .,
+  data = wine_train
+)
+formula_rec
+```
 
 ### OLS preproc
-- Perform a log transformation on the all predictors, `step_log` here.
+For the second preprocessing, we do the following: 
+- Perform a log transformation on the all predictors, `step_log`.
 
-- Remove variables that is having no difference in their values - zero variance, `step_zv` here
+- Remove variables that is having no difference in their values - zero variance, `step_zv`.
+
+This preprocessing is particularly beneficial to the OLS model
 
 ```{r}
 #| label: ols-model-preproc
-lm_rec <- recipe(
+ols_rec <- recipe(
   quality ~ .,
   data =  wine_train
 ) |> 
   step_log(all_predictors()) |> 
   step_zv(all_predictors())
 
-lm_rec
+ols_rec
 ```
-A preview of the preprocess object is given below
+
+A preview of the preprocess object is given below @tbl-juice-preview
 ```{r}
 #| label: tbl-juice-preview
 #| tbl-cap: Variables after log transformation and removing zero variance variables
+#| echo: false
 
-prep(lm_rec) |> 
+prep(ols_rec) |> 
   juice() |> 
   head() |> 
   gt() |> 
@@ -523,40 +556,42 @@ prep(lm_rec) |>
 ```
 
 
-### Other model preproc
-Given our data structure, and the state of the data we do not need to perform any preprocessing, so we simply give our model formula.
+## Workflow
+To account for all our modeling process, we create our workflow object, to capture, the recipe objects (*for preprocessing*) and our model specifications. We use the `workflow_set()` function for this, so we can use both recipe objects on each model
 
-```{r}
-#| label: other-preproc
-
-oth_rec <- recipe(
-  quality ~ .,
-  data = wine_train
-)
-oth_rec
-```
-
-We can set our workflow object. Here we test for an OLS model with preprocessing and the other models without preprocessing.
 
 ```{r}
 #| label: design-workflow
-
-ols_wf <- workflow() |> 
-  add_recipe(lm_rec) |> 
-  add_model(lm_spec)
-
-rf_wf <- workflow() |> 
-  add_model(rand_for_spec) |> 
-  add_recipe(oth_rec)
-
-dec_tree_wf <- workflow() |> 
-  add_model(dec_tree_spec) |> 
-  add_recipe(oth_rec)
-
-ols_wf
-rf_wf
-dec_tree_wf
+wf_object <- workflow_set(
+  preproc = list(
+    no_preproc = formula_rec,
+    log_zv = ols_rec
+  ),
+  model = list(
+    ols = ols_spec,
+    dec_tree = dec_tree_spec,
+    rf = rand_for_spec,
+    xg = xgboost_spec
+  ),
+  cross = TRUE
+)
 ```
+
+Using `workflow_map()`, we tune the models using a grid search on the resample object which we made earlier. We set `verbose = TRUE` to see the process
+
+```{r}
+wf_tune_fit <- workflow_map(
+  wf_object,
+  fn = "tune_grid",
+  grid = 10,
+  resamples = wine_folds,
+  seed = 11,
+  verbose = TRUE
+)
+```
+
+
+
 
 ## Parameter Tuning
 Before tuning the models that requires tuning, viz, decision tree, and random forest, we set a search grid for them.
