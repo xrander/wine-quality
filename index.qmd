@@ -396,15 +396,13 @@ Overall there's a fair distribution of correlation across all the variables rang
 
 Imagine you're a wine connoisseur, swirling a glass and trying to guess how good a wine will be. That's kind of what we're setting out to do here, but with the help of some brainy computer programs!
 
-We're going to test out four different "recipes" to predict white wine quality.  Think of them like different ways of mixing ingredients (the info we have about the wine) to come up with a final answer (how good the wine is). Here's the lowdown on each recipe:
+We're going to test out three different "recipes" to predict white wine quality.  Think of them like different ways of mixing ingredients (the info we have about the wine) to come up with a final answer (how good the wine is). Here's the lowdown on each recipe:
 
 -   Ordinary Least Squares (OLS) Regression: This is a foundational linear regression model that establishes a linear relationship between the independent variables and the quality score.
 
 -   Decision Tree Model: This non-linear model uses a tree-like structure to make predictions by splitting the data based on a series of decision rules.
 
 -   Random Forest: This ensemble method combines multiple decision trees, improving accuracy and reducing overfitting compared to a single tree.
-
--   XGBoost: This advanced ensemble technique utilizes gradient boosting to create a powerful model that can handle complex relationships within the data.
 
 
 ## Data Splitting Strategy
@@ -438,22 +436,22 @@ wine_folds <- vfold_cv(wine_train, v = 10)
 
 ## Model Specification
 
-To ensure a good modeling workflow, we specify the our model engines, and prepare to tune some parameters depending on the model, for example in the decision tree specification, we do not know the optimal tree depth, so we tune this parameter. Other parameters which cannot determine from the start of model fitting are also tuned, like for the random forest and the XGboost model specification.
+To ensure a good modeling workflow, we specify the our model engines, and prepare to tune some parameters depending on the model, for example in the decision tree specification, we do not know the optimal tree depth, so we tune this parameter. Other parameters which cannot determine from the start of model fitting are also tuned, like for the random forest and decision tree model specification.
 ```{r}
 #| label: model-specs
 
-lm_reg <- linear_reg() |> # OLS specification
+lm_spec <- linear_reg() |> # OLS specification
   set_engine("lm") |> 
   set_mode("regression")
 
-dec_tree <- decision_tree( # Decision tree specification
+dec_tree_spec <- decision_tree( # Decision tree specification
   tree_depth = tune(),
   cost_complexity = tune()
 ) |> 
   set_engine("rpart") |> 
   set_mode("regression")
 
-rand_for <- rand_forest( # Random forest specification
+rand_for_spec <- rand_forest( # Random forest specification
   trees = 1000,
   mtry = tune(),
   min_n = tune()
@@ -461,15 +459,6 @@ rand_for <- rand_forest( # Random forest specification
   set_engine("ranger") |> 
   set_mode("regression")
 
-xgboost <- boost_tree( # XGboost specification
-  mtry = tune(),
-  min_n = tune(),
-  loss_reduction = tune(),
-  tree_depth = tune(),
-  sample_size = tune()
-) |> 
-  set_engine("xgboost") |> 
-  set_mode("regression")
 ```
 
 
@@ -483,27 +472,133 @@ After model specification, we set the necessary pre-processing based on the mode
 
 ```{r}
 #| label: ols-model-preproc
-lm_spec <- recipe(
+lm_rec <- recipe(
   quality ~ .,
   data =  wine_train
 ) |> 
   step_log(all_predictors()) |> 
   step_zv(all_predictors())
 
-lm_spec
+lm_rec
 ```
-### Other models preproc
+A preview of the preprocess object is given below
+```{r}
+#| label: tbl-juice-preview
+#| tbl-cap: Variables after log transformation and removing zero variance variables
+
+prep(lm_rec) |> 
+  juice() |> 
+  head() |> 
+  gt() |> 
+  cols_label(
+    fixed_acidity = "Fixed",
+    volatile_acidity = "Volatile",
+    citric_acid = "Citric Acid",
+    residual_sugar = "Residual Sugar",
+    chlorides = "Chlorides",
+    free_sulfur_dioxide = "Free",
+    total_sulfur_dioxide = "Total",
+    density = "Density",
+    p_h = "pH",
+    sulphates = "Sulphates",
+    alcohol = "Alcohol",
+    quality = "Quality"
+  ) |> 
+  tab_spanner(
+    label = "Acidity",
+    columns = contains("acidity")
+  ) |> 
+  tab_spanner(
+    label = "Sulfur dioxide",
+    columns = contains("dioxide")
+  ) |> 
+  tab_header(
+    title = "Preview of Preprocessed data"
+  ) |> 
+  opt_stylize(
+    style = 3,
+    color = "pink"
+  ) |> 
+  as_raw_html()
+```
+
+
+### Other model preproc
 Given our data structure, and the state of the data we do not need to perform any preprocessing, so we simply give our model formula.
 
 ```{r}
 #| label: other-preproc
 
-oth_spec <- recipe(
+oth_rec <- recipe(
   quality ~ .,
   data = wine_train
 )
+oth_rec
 ```
 
-###
+We can set our workflow object. Here we test for an OLS model with preprocessing and the other models without preprocessing.
 
+```{r}
+#| label: design-workflow
+
+ols_wf <- workflow() |> 
+  add_recipe(lm_rec) |> 
+  add_model(lm_spec)
+
+rf_wf <- workflow() |> 
+  add_model(rand_for_spec) |> 
+  add_recipe(oth_rec)
+
+dec_tree_wf <- workflow() |> 
+  add_model(dec_tree_spec) |> 
+  add_recipe(oth_rec)
+
+ols_wf
+rf_wf
+dec_tree_wf
+```
+
+## Parameter Tuning
+Before tuning the models that requires tuning, viz, decision tree, and random forest, we set a search grid for them.
+
+### Grid search
+```{r}
+#| label: grid-search
+
+rf_grid <- grid_regular(
+  min_n(),
+  finalize(mtry(), wine_train),
+  levels = 10
+)
+
+dec_tree_grid <- grid_regular(
+  cost_complexity(),
+  tree_depth(),
+  levels = 10
+)
+```
+
+Now we can tune after setting the grid search
+```{r}
+#| label: tune
+
+doParallel::registerDoParallel()
+set.seed(234)
+
+grid_control <- control_grid(save_pred = TRUE, save_workflow = TRUE)
+
+df_tune <- tune_grid(
+  dec_tree_wf,
+  resamples = wine_folds,
+  control = grid_control,
+  grid = dec_tree_grid
+)
+
+rf_tune <- tune_grid(
+  rf_wf,
+  grid = rf_grid,
+  resamples = wine_folds,
+  control = grid_control
+)
+```
 [homepage](https://olamideadu.com)
