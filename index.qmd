@@ -392,6 +392,7 @@ GGally::ggcorr(
 Overall there's a fair distribution of correlation across all the variables ranging from as low as ± 0.1 to ± 0.8.
 
 # Modeling: Predicting the Perfect Potion
+
 <img src = "image/cat-taster.webp" alt="cat connoisseur" width="90%" height="70%"/> <br>
 
 Imagine you're a wine connoisseur, swirling a glass and trying to guess how good a wine will be. That's kind of what we're setting out to do here, but with the help of some brainy computer programs!
@@ -403,6 +404,8 @@ We're going to test out three different "recipes" to predict white wine quality.
 -   Decision Tree Model: This non-linear model uses a tree-like structure to make predictions by splitting the data based on a series of decision rules.
 
 -   Random Forest: This ensemble method combines multiple decision trees, improving accuracy and reducing overfitting compared to a single tree.
+
+-   Nearest Neighbor:
 
 
 ## Data Splitting Strategy
@@ -449,7 +452,7 @@ dec_tree_spec <- decision_tree( # Decision tree specification
   tree_depth = tune(),
   cost_complexity = tune()
 ) |> 
-  set_engine("rpart", importance = TRUE) |> 
+  set_engine("rpart") |> 
   set_mode("regression")
 
 rand_for_spec <- rand_forest( # Random forest specification
@@ -457,22 +460,21 @@ rand_for_spec <- rand_forest( # Random forest specification
   mtry = tune(),
   min_n = tune()
 ) |> 
-  set_engine("ranger", importance = TRUE) |> 
+  set_engine("ranger", importance = "impurity") |> 
   set_mode("regression")
 
-xgboost_spec <- boost_tree(
-  mtry = tune(),
-  min_n = tune(),
-  trees = tune(),
-  learn_rate = .1
+knn_spec <- nearest_neighbor(
+  neighbors = tune(),
+  dist_power = tune(),
+  weight_func = tune()
 ) |> 
-  set_mode("regression") |> 
-  set_engine("xgboost", importance = TRUE)
+  set_engine("kknn") |> 
+  set_mode("regression")
 
 ols_spec
 dec_tree_spec
 rand_for_spec
-xgboost_spec
+knn_spec
 
 ```
 
@@ -497,16 +499,11 @@ formula_rec
 For the second preprocessing, we do the following: 
 - Perform a log transformation on the all predictors, `step_log`.
 
-- Remove variables that is having no difference in their values - zero variance, `step_zv`.
-
 This preprocessing is particularly beneficial to the OLS model
 
 ```{r}
 #| label: ols-model-preproc
-ols_rec <- recipe(
-  quality ~ .,
-  data =  wine_train
-) |> 
+ols_rec <- formula_rec |> 
   step_log(all_predictors()) |> 
   step_zv(all_predictors())
 
@@ -554,7 +551,40 @@ prep(ols_rec) |>
   ) |> 
   as_raw_html()
 ```
+It's likely we get some NAN, NA or Inf values after applying a log transformation as we did, a good way to check for this before fitting our model is to do a quick summary of the preprocessed data.
 
+```{r}
+#| label: tbl-preproc-sum-preview
+#| tbl-cap: Preview of Preprocessed data
+#| warning: false
+#| message: false
+
+ols_preprocessed <- prep(ols_rec) |> 
+  juice()
+
+skimr::skim(ols_preprocessed) |> 
+  gt() |> 
+  as_raw_html()
+```
+@tbl-preproc-sum-preview shows that citric_acid is having NaN and Inf values, this would be problematic for models like KNN and the OLS model. We need to rewrite the preprocessing to resolve the issue. Since all the variables have values that are non_unique, the preprocessing step `step_zv` is not needed.
+
+```{r}
+#| label: tbl-preproc-2
+#| tbl-cap: Improved preprocessing
+#| message: false
+
+ols_rec2 <- formula_rec |> 
+  step_mutate(citric_acid = citric_acid + 1) |> 
+  step_log(all_predictors())
+
+ols_rec2 |> 
+  prep() |> 
+  juice() |> 
+  skimr::skim() |> 
+  gt() |> 
+  as_raw_html()
+```
+@tbl-preproc-2 above is without NA, NAN, and Inf. We will be using this for our preprocessing.
 
 ## Workflow
 To account for all our modeling process, we create our workflow object, to capture, the recipe objects (*for preprocessing*) and our model specifications. We use the `workflow_set()` function for this, so we can use both recipe objects on each model
@@ -565,21 +595,27 @@ To account for all our modeling process, we create our workflow object, to captu
 wf_object <- workflow_set(
   preproc = list(
     no_preproc = formula_rec,
-    log_zv = ols_rec
+    log_zv = ols_rec2
   ),
   model = list(
     ols = ols_spec,
     dec_tree = dec_tree_spec,
     rf = rand_for_spec,
-    xg = xgboost_spec
+    knn = knn_spec
   ),
   cross = TRUE
 )
 ```
 
+## Parameter Tuning
 Using `workflow_map()`, we tune the models using a grid search on the resample object which we made earlier. We set `verbose = TRUE` to see the process
 
 ```{r}
+#| label: tune-parameters
+
+doParallel::registerDoParallel(cores = 6)
+
+
 wf_tune_fit <- workflow_map(
   wf_object,
   fn = "tune_grid",
@@ -588,52 +624,181 @@ wf_tune_fit <- workflow_map(
   seed = 11,
   verbose = TRUE
 )
+
+doParallel::stopImplicitCluster()
 ```
 
-
-
-
-## Parameter Tuning
-Before tuning the models that requires tuning, viz, decision tree, and random forest, we set a search grid for them.
-
-### Grid search
+## Tune Result
 ```{r}
-#| label: grid-search
+#| label: fig-tune-result
+#| fig-cap: Tune result
 
-rf_grid <- grid_regular(
-  min_n(),
-  finalize(mtry(), wine_train),
-  levels = 10
-)
-
-dec_tree_grid <- grid_regular(
-  cost_complexity(),
-  tree_depth(),
-  levels = 10
-)
+autoplot(wf_tune_fit) +
+  theme(
+    legend.position = "bottom"
+  ) +
+  theme_minimal()
 ```
 
-Now we can tune after setting the grid search
+@fig-tune-result gives us a visual representation of how the different models performed. The random forest is performing better if we use rmse and rsquared as the evaluation metric. It is closely followed by a KNN model which is far from it's group.
+
+## Examining Specific Model Results
+It seems the random forest model performed well, we can pull its result out as well as its tuning object.
 ```{r}
-#| label: tune
+#| label: tbl-model-rank
+#| tbl-cap: Ranks of the model, random forest without preprocessing is ranked highest
 
-doParallel::registerDoParallel()
-set.seed(234)
+top_model <- rank_results(wf_tune_fit, rank_metric = "rmse", select_best = TRUE)
 
-grid_control <- control_grid(save_pred = TRUE, save_workflow = TRUE)
-
-df_tune <- tune_grid(
-  dec_tree_wf,
-  resamples = wine_folds,
-  control = grid_control,
-  grid = dec_tree_grid
-)
-
-rf_tune <- tune_grid(
-  rf_wf,
-  grid = rf_grid,
-  resamples = wine_folds,
-  control = grid_control
-)
+top_model |> 
+  select(-c(preprocessor, n)) |> 
+  mutate(
+    .config = str_remove_all(.config, "Preprocessor1_Model"),
+    wflow_id = case_when(
+      str_detect(wflow_id, "no_preproc") ~ "No Preprocessing",
+      .default = "Log transformation"
+    ),
+    model = str_replace_all(model, "_", " "),
+    model = str_to_title(model)
+  ) |> 
+  pivot_wider(
+    id_cols = c(wflow_id, model, .config, rank),
+    names_from = .metric,
+    values_from = mean
+  ) |> 
+  gt() |> 
+  cols_label(
+    wflow_id = "Recipe",
+    .config = "Resample Number",
+    model = "Model Type",
+    rank = "Rank",
+    rmse = "RMSE",
+    rsq = "R-Squared"
+  ) |> 
+  tab_spanner(
+    columns = rmse:rsq,
+    label = "Evaluation Metric"
+  ) |> 
+  tab_header(title = "Top Performing Models") |> 
+  opt_stylize(
+    style = 3,
+    color = "blue",
+    add_row_striping = TRUE
+  ) |> 
+  as_raw_html()
 ```
+
+@tbl-model-rank gives a better information on which model performed best, it shows if it the model underwent preprocessing or not and tells us the the resample from which the model was selected from. 
+
+Next we get the workflow object and finalize the model
+
+# Finalize Model
+Finalizing the model involves few steps:
+
+
+1.   extract the workflow object of the best model which id is `no_preproc_rf`
+
+```{r}
+#| label: final-workflow-object
+rf_model <- wf_tune_fit |> 
+  extract_workflow(id = "no_preproc_rf")
+
+rf_model
+```
+
+2.   extract the workflow tuning results on the resamples and select the best metric
+
+```{r}
+#| label: tbl-get-best-workflow-tune
+#| tbl-cap: Best Tuning Parameter
+rf_workflow_res <- wf_tune_fit |> 
+  extract_workflow_set_result("no_preproc_rf")
+
+best_tune <- select_best(rf_workflow_res, metric = "rmse")
+best_tune
+```
+
+3.   The best tuning parameter is seen in @tbl-get-best-workflow-tune. We use these values of the parameter with our recommended model with its recommended preprocessing and use the `finalize_workflow()` function to fit our final workflow.
+
+```{r}
+#| label: recommended-wf
+recommended_workflow <- finalize_workflow(
+  rf_model,
+  parameters = best_tune
+)
+
+recommended_workflow
+```
+The result shows that our parameters from tuning have been inserted into the model automatically.
+
+4. The last step involves fitting the workflow recommended from our analysis to the split data set.
+
+```{r}
+#| label: final-fit
+
+doParallel::registerDoParallel(cores = 6)
+final_model <- last_fit(
+  object = recommended_workflow,
+  split = wine_split
+)
+
+doParallel::stopImplicitCluster()
+```
+
+
+# Model Evaluation
+We can see how well the model performs on the test data. We applied `ceiling()` function to round our predictions as we they are count data.
+```{r}
+final_model |> 
+  collect_predictions() |> 
+  mutate(
+    .pred = case_when(
+      .pred < 5 ~ floor(.pred),
+      .default = ceiling(.pred)
+    )
+  ) |> 
+  select(observed = quality, predicted = .pred) |> 
+  pivot_longer(
+    cols = c(predicted, observed),
+    names_to = "type",
+    values_to = "value"
+  ) |> 
+  ggplot(aes(value, fill = type)) +
+  geom_bar(position = "dodge") +
+  labs(
+    x = "Quality",
+    y = "Count",
+    title = "Model Performnce on Test Data",
+    subtitle = "Model do not capture low values (3, 4, and 5) properly",
+    fill = "Value"
+  ) +
+  scale_fill_viridis_d() +
+  theme_minimal()
+```
+
+
+# Feature Importance
+Feature importance sheds light on the factors that are driving the decisions which our model makes and the one which might be irrelevant. This can provide a lot of valuable insights on what truly matters to white wine consumers. We can investigate this using the `vip` library.
+```{r}
+library(vip)
+
+final_model |>
+  extract_fit_parsnip() |> 
+  vip(
+    num_features = 10,
+    geom = "col",
+    aesthetics = list(
+      fill = "tan",
+      col = "orange",
+      alpha = .6
+    )
+  ) +
+  theme_minimal()
+```
+Apparently, alcohol is the number one feature. 
+
+#Conclusion
+For this analysis we tried to model the quality of white wine using some chemical components of wine. Four models, OLS, decision tree, random forest and KNN were trained, compared, and ranked. The top ranking model was random forest. The model made good predictions, but this could have been limited as the quality provided are discrete, while a continuous regression model was fitted to predict these qualities. This can lead to some errors. Notwithstanding is still a very useful one with good predictive capabilites.
+
+
 [homepage](https://olamideadu.com)

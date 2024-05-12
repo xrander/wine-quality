@@ -25,3 +25,7 @@ yardstick
 gt
 kableExtra
 patchwork
+rpart
+ranger
+kknn
+vip
