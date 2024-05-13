@@ -399,13 +399,14 @@ Imagine you're a wine connoisseur, swirling a glass and trying to guess how good
 
 We're going to test out three different "recipes" to predict white wine quality.  Think of them like different ways of mixing ingredients (the info we have about the wine) to come up with a final answer (how good the wine is). Here's the lowdown on each recipe:
 
--   Ordinary Least Squares (OLS) Regression: This is a foundational linear regression model that establishes a linear relationship between the independent variables and the quality score.
+-   Generalized Linear Model : his is a foundational recipe, like a classic soup base. It establishes a relationship between the independent variables (like acidity, sugar content) and the quality score using a specific link function.  For wine quality which might be a score or rank, a linear regression within a GLM framework would likely be ideal.
 
--   Decision Tree Model: This non-linear model uses a tree-like structure to make predictions by splitting the data based on a series of decision rules.
+-   Decision Tree Model: This recipe is more like a detective story with a bunch of "yes or no" questions. It splits the wine data based on different factors, asking questions like "is the alcohol content high?" or "is it a certain grape variety?" to guess the quality.
 
--   Random Forest: This ensemble method combines multiple decision trees, improving accuracy and reducing overfitting compared to a single tree.
+-   Random Forest: Imagine having a whole bunch of detectives working together! This recipe combines lots of decision tree detectives, making it more accurate and less likely to get stuck on one idea.
 
--   Nearest Neighbor:
+-   Nearest Neighbor: This recipe is like asking other wine experts for their opinion. It finds similar wines in the data based on the available information and predicts the quality based on how those similar wines were rated.
+
 
 
 ## Data Splitting Strategy
@@ -444,8 +445,8 @@ To ensure a good modeling workflow, we specify our model engines, and prepare to
 #| label: model-specs
 #| hide: true
 
-ols_spec <- linear_reg() |> # OLS specification
-  set_engine("lm") |> 
+glm_spec <- linear_reg() |> # OLS specification
+  set_engine("glm", family = "poisson") |> 
   set_mode("regression")
 
 dec_tree_spec <- decision_tree( # Decision tree specification
@@ -471,7 +472,7 @@ knn_spec <- nearest_neighbor(
   set_engine("kknn") |> 
   set_mode("regression")
 
-ols_spec
+glm_spec
 dec_tree_spec
 rand_for_spec
 knn_spec
@@ -479,11 +480,23 @@ knn_spec
 ```
 
 
-## Feature Engineering
-After model specification, we do some feature engineering based on the model specification, a good reference for recommended pre-processing or feature engineering techniques for different models can be found [here](https://www.tmwr.org/pre-proc-table). For our analysis, we will have models fitted on our variables without being preprocessed and models fitted with preprocessing. 
+## Fine Tuning the Ingredients: Feature Engineering
+
+Now that we've chosen our recipe testers (models), let's take a look at the ingredients (features) we'll be using. Ideally, we want the ingredients to be in a format that the models can easily understand and use for their predictions.  This process of preparing the data is called feature engineering.
+
+There are many resources available to help with feature engineering, like this one [link](https://www.tmwr.org/pre-proc-table). that provides a reference for different models and recommended pre-processing techniques.
+
+In our case, we'll start by testing the models on the features without any preprocessing.  Some models, like the ones we've chosen, can handle data in its raw form and might not necessarily require specific transformations.
+
+However, that doesn't mean there's no room for improvement!  We can explore additional options like:
+
+- Log transformation: This can be helpful for features with skewed distributions, making them more symmetrical and easier for some models to work with.
+
+- Scaled transformations (standardization or normalization): This addresses features with differing scales and units.
+
 
 ### Formula Recipe
-Here, we assume no preprocessing, even if we ideally need to preprocess for our OLS model
+Here, we assume no preprocessing.
 
 ```{r}
 #| label: no-preproc
@@ -495,19 +508,20 @@ formula_rec <- recipe(
 formula_rec
 ```
 
-### OLS preproc
+### log_zv preproc
 For the second preprocessing, we do the following: 
 - Perform a log transformation on the all predictors, `step_log`.
 
-This preprocessing is particularly beneficial to the OLS model
+- Scale the variables so they are all on a similar scale.
+
 
 ```{r}
-#| label: ols-model-preproc
-ols_rec <- formula_rec |> 
+#| label: log-sc-model-preproc
+log_sc_rec <- formula_rec |> 
   step_log(all_predictors()) |> 
   step_zv(all_predictors())
 
-ols_rec
+log_sc_rec
 ```
 
 A preview of the preprocess object is given below @tbl-juice-preview
@@ -516,7 +530,7 @@ A preview of the preprocess object is given below @tbl-juice-preview
 #| tbl-cap: Variables after log transformation and removing zero variance variables
 #| echo: false
 
-prep(ols_rec) |> 
+prep(log_sc_rec) |> 
   juice() |> 
   head() |> 
   gt() |> 
@@ -551,7 +565,7 @@ prep(ols_rec) |>
   ) |> 
   as_raw_html()
 ```
-It's likely we get some NAN, NA or Inf values after applying a log transformation as we did, a good way to check for this before fitting our model is to do a quick summary of the preprocessed data.
+After applying a log transformation, it's common to encounter values like NaN (Not a Number), NA (missing values), or Inf (infinity). To ensure our models can process the data effectively, we should check for these potential issues before fitting the model. A quick summary of the preprocessed data can reveal their presence.
 
 ```{r}
 #| label: tbl-preproc-sum-preview
@@ -559,46 +573,52 @@ It's likely we get some NAN, NA or Inf values after applying a log transformatio
 #| warning: false
 #| message: false
 
-ols_preprocessed <- prep(ols_rec) |> 
+log_sc_preprocessed <- prep(log_sc_rec) |> 
   juice()
 
-skimr::skim(ols_preprocessed) |> 
+skimr::skim(log_sc_preprocessed) |> 
   gt() |> 
   as_raw_html()
 ```
-@tbl-preproc-sum-preview shows that citric_acid is having NaN and Inf values, this would be problematic for models like KNN and the OLS model. We need to rewrite the preprocessing to resolve the issue. Since all the variables have values that are non_unique, the preprocessing step `step_zv` is not needed.
+Based on @tbl-preproc-sum-preview, the citric_acid feature contains NaN and Inf values. These values can cause issues for machine learning models like KNN. To ensure our models can process the data effectively, we need to rewrite the preprocessing to resolve the issue by adding 1 to values of citric_acid.
 
 ```{r}
 #| label: tbl-preproc-2
 #| tbl-cap: Improved preprocessing
 #| message: false
 
-ols_rec2 <- formula_rec |> 
+log_sc_rec2 <- formula_rec |> 
   step_mutate(citric_acid = citric_acid + 1) |> 
   step_log(all_predictors())
 
-ols_rec2 |> 
+log_sc_rec2 |> 
   prep() |> 
   juice() |> 
   skimr::skim() |> 
   gt() |> 
   as_raw_html()
 ```
-@tbl-preproc-2 above is without NA, NAN, and Inf. We will be using this for our preprocessing.
+Our efforts in rewriting the preprocessing step have paid off! As shown in @tbl-preproc-2, the citric_acid feature is now free of NA, NAN, and Inf. We can now proceed with the model training process using the preprocessed data from @tbl-preproc-2.
 
 ## Workflow
-To account for all our modeling process, we create our workflow object, to capture, the recipe objects (*for preprocessing*) and our model specifications. We use the `workflow_set()` function for this, so we can use both recipe objects on each model
+Now that we've chosen our feature engineering techniques and defined the models we'll be using,  it's time to bring them together. To capture this entire workflow, we'll create a `workflow object`
 
+Think of this workflow object like a recipe book. It will hold all the ingredients (the recipe objects specifying the feature engineering steps) and the instructions for each dish (the model specifications). This allows us to easily apply both recipe options (feature engineering approaches) to each model we're testing.
+
+The workflow_set() function will be our handy tool for creating this comprehensive recipe book. It ensures we can seamlessly combine different feature engineering choices with various models, allowing for a more thorough analysis.
+
+This approach allows us to explore different combinations and see which recipe (feature engineering) works best for each model in predicting white wine quality.
 
 ```{r}
 #| label: design-workflow
+
 wf_object <- workflow_set(
   preproc = list(
     no_preproc = formula_rec,
-    log_zv = ols_rec2
+    log_zv = log_sc_rec2
   ),
   model = list(
-    ols = ols_spec,
+    glm = glm_spec,
     dec_tree = dec_tree_spec,
     rf = rand_for_spec,
     knn = knn_spec
@@ -607,13 +627,22 @@ wf_object <- workflow_set(
 )
 ```
 
-## Parameter Tuning
-Using `workflow_map()`, we tune the models using a grid search on the resample object which we made earlier. We set `verbose = TRUE` to see the process
+## Finding the Perfect Settings: Parameter Tuning
+We've chosen our models and put together our workflow, but there's one more step before we can unleash them on the wine data. Each model has its own set of "knobs" we can adjust to fine-tune its performance. These knobs are called "hyperparameters," and finding the right settings for them can significantly impact how well the model predicts wine quality.
+
+Imagine you're baking a cake. You have a recipe to follow (the model in this case), but you can adjust things like the oven temperature or the baking time (the hyperparameters) to get the perfect result. Here, we'll use a technique called "grid search" to explore different combinations of these hyperparameters for each model.
+
+To make this process faster, we'll use a package called `doParallel`. This helps us leverage multiple processing cores on your computer, essentially dividing the work and speeding things up.
+
+The `workflow_map()` function comes in handy again. It allows us to apply the grid search technique to all the models we defined in our workflow. We'll also set `verbose=TRUE` during this step, which means the computer will show us the progress (although we won't include those details in this explanation).
+
+By exploring different hyperparameter combinations, we aim to find the settings that make each model perform at its best when predicting white wine quality.
 
 ```{r}
 #| label: tune-parameters
+#| message: false
 
-doParallel::registerDoParallel(cores = 6)
+doParallel::registerDoParallel(cores = 8)
 
 
 wf_tune_fit <- workflow_map(
@@ -640,10 +669,14 @@ autoplot(wf_tune_fit) +
   theme_minimal()
 ```
 
-@fig-tune-result gives us a visual representation of how the different models performed. The random forest is performing better if we use rmse and rsquared as the evaluation metric. It is closely followed by a KNN model which is far from it's group.
+@fig-tune-result provides a visual breakdown of how the different models performed in predicting white wine quality. We used two key metrics to evaluate their success: RMSE and R-Squared.
+
+The clear winner based on these metrics is the Random Forest Model! It achieved the lowest RMSE and highest R-Squared score, indicating both high accuracy (low error) and a strong correlation between its predictions and the actual wine quality score.
+
+Following closely behind is the KNN (K-Nearest Neighbors) model. While it performs well, there's a noticeable gap between its performance and Random Forest's. This suggests that Random Forest might be a more robust choice for predicting wine quality in this particular dataset.
 
 ## Examining Specific Model Results
-It seems the random forest model performed well, we can pull its result out as well as its tuning object.
+As @fig-tune-result revealed, the Random Forest model is the top performer. To gain a better understanding, let's take a closer look at the tuning process result.
 ```{r}
 #| label: tbl-model-rank
 #| tbl-cap: Ranks of the model, random forest without preprocessing is ranked highest
@@ -656,7 +689,7 @@ top_model |>
     .config = str_remove_all(.config, "Preprocessor1_Model"),
     wflow_id = case_when(
       str_detect(wflow_id, "no_preproc") ~ "No Preprocessing",
-      .default = "Log transformation"
+      .default = "Log + scale transformation"
     ),
     model = str_replace_all(model, "_", " "),
     model = str_to_title(model)
@@ -688,7 +721,14 @@ top_model |>
   as_raw_html()
 ```
 
-@tbl-model-rank gives a better information on which model performed best, it shows if it the model underwent preprocessing or not and tells us the the resample from which the model was selected from. 
+@tbl-model-rank offers a comprehensive overview of each model's performance, providing valuable insights beyond the visual representation in @fig-tune-result. Here's what we can learn from this table:
+
+-   Model Performance: It clearly shows the best performing model based on the chosen evaluation metrics (e.g., RMSE, R-squared). This allows for a quick comparison and identification of the champion model.
+-   Preprocessing Status: The table indicates whether each model was trained on data that underwent preprocessing (like feature scaling) or not. This information helps us understand if preprocessing played a role in the model's performance.
+-   Resample Selection: It specifies the resample object used to select the best performing model version during the tuning process. This provides context about the training and validation data used for each model.
+
+Preprocessing does not improve the performance of all models except the Generalized Linear Model which showed slight improvement.
+
 
 Next we get the workflow object and finalize the model
 
@@ -780,6 +820,10 @@ final_model |>
 # Feature Importance
 Feature importance sheds light on the factors that are driving the decisions which our model makes and the one which might be irrelevant. This can provide a lot of valuable insights on what truly matters to white wine consumers. We can investigate this using the `vip` library.
 ```{r}
+#| label: fig-feature-importance
+#| message: false
+
+
 library(vip)
 
 final_model |>
@@ -798,7 +842,17 @@ final_model |>
 Apparently, alcohol is the number one feature. 
 
 #Conclusion
-For this analysis we tried to model the quality of white wine using some chemical components of wine. Four models, OLS, decision tree, random forest and KNN were trained, compared, and ranked. The top ranking model was random forest. The model made good predictions, but this could have been limited as the quality provided are discrete, while a continuous regression model was fitted to predict these qualities. This can lead to some errors. Notwithstanding is still a very useful one with good predictive capabilites.
+This analysis explored the use of machine learning to predict white wine quality based on its chemical components. We compared four models: Generalized Linear Model (GLM), Decision Tree, Random Forest, and K-Nearest Neighbors (KNN). Through training and evaluation, the Random Forest model emerged as the top performer, demonstrating strong predictive capabilities.
+
+It's important to acknowledge a potential limitation. While Random Forest excels at continuous predictions, the actual quality scores might be assigned discrete labels (e.g., 6 = good, 8 = excellent). This difference in representation between the model's predictions and the actual quality scores could lead to minor inaccuracies.
+
+Despite this consideration, the Random Forest model has proven to be a powerful tool for predicting wine quality within the 0-10 range. Future explorations could involve:
+
+Classification Models: Investigating models specifically designed for predicting discrete quality categories (e.g., good, bad) might provide even more accurate results when directly aligned with the scoring system.
+Feature Engineering: Exploring alternative feature engineering techniques could potentially further refine the model's ability to capture the nuances of wine quality based on its chemical components.
+
+
+This analysis has successfully demonstrated the potential of machine learning for white wine quality prediction. By understanding the strengths and limitations of different models and data considerations, we can continue to refine our approach and develop even more accurate models for wine quality assessment.
 
 
 [homepage](https://olamideadu.com)

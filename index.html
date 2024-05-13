@@ -923,10 +923,10 @@ Figure&nbsp;4: Correlation Plot
 <p>Imagine you’re a wine connoisseur, swirling a glass and trying to guess how good a wine will be. That’s kind of what we’re setting out to do here, but with the help of some brainy computer programs!</p>
 <p>We’re going to test out three different “recipes” to predict white wine quality. Think of them like different ways of mixing ingredients (the info we have about the wine) to come up with a final answer (how good the wine is). Here’s the lowdown on each recipe:</p>
 <ul>
-<li><p>Ordinary Least Squares (OLS) Regression: This is a foundational linear regression model that establishes a linear relationship between the independent variables and the quality score.</p></li>
-<li><p>Decision Tree Model: This non-linear model uses a tree-like structure to make predictions by splitting the data based on a series of decision rules.</p></li>
-<li><p>Random Forest: This ensemble method combines multiple decision trees, improving accuracy and reducing overfitting compared to a single tree.</p></li>
-<li><p>Nearest Neighbor:</p></li>
+<li><p>Generalized Linear Model : his is a foundational recipe, like a classic soup base. It establishes a relationship between the independent variables (like acidity, sugar content) and the quality score using a specific link function. For wine quality which might be a score or rank, a linear regression within a GLM framework would likely be ideal.</p></li>
+<li><p>Decision Tree Model: This recipe is more like a detective story with a bunch of “yes or no” questions. It splits the wine data based on different factors, asking questions like “is the alcohol content high?” or “is it a certain grape variety?” to guess the quality.</p></li>
+<li><p>Random Forest: Imagine having a whole bunch of detectives working together! This recipe combines lots of decision tree detectives, making it more accurate and less likely to get stuck on one idea.</p></li>
+<li><p>Nearest Neighbor: This recipe is like asking other wine experts for their opinion. It finds similar wines in the data based on the available information and predicts the quality based on how those similar wines were rated.</p></li>
 </ul>
 <section id="data-splitting-strategy" class="level2">
 <h2 class="anchored" data-anchor-id="data-splitting-strategy">Data Splitting Strategy</h2>
@@ -954,8 +954,8 @@ Figure&nbsp;4: Correlation Plot
 <h2 class="anchored" data-anchor-id="model-specification">Model Specification</h2>
 <p>To ensure a good modeling workflow, we specify our model engines, and prepare to tune some parameters, for example, the decision tree model specification, we do not know the tree depth that would be optimal, so we tune this parameter. Other parameters which cannot be predetermine when fitting our model are also tuned.</p>
 <div class="cell" data-hide="true">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>ols_spec <span class="ot">&lt;-</span> <span class="fu">linear_reg</span>() <span class="sc">|&gt;</span> <span class="co"># OLS specification</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"lm"</span>) <span class="sc">|&gt;</span> </span>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>glm_spec <span class="ot">&lt;-</span> <span class="fu">linear_reg</span>() <span class="sc">|&gt;</span> <span class="co"># OLS specification</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"glm"</span>, <span class="at">family =</span> <span class="st">"poisson"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"regression"</span>)</span>
 <span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>dec_tree_spec <span class="ot">&lt;-</span> <span class="fu">decision_tree</span>( <span class="co"># Decision tree specification</span></span>
@@ -981,11 +981,14 @@ Figure&nbsp;4: Correlation Plot
 <span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_engine</span>(<span class="st">"kknn"</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">"regression"</span>)</span>
 <span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>ols_spec</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>glm_spec</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Linear Regression Model Specification (regression)
 
-Computational engine: lm </code></pre>
+Engine-Specific Arguments:
+  family = poisson
+
+Computational engine: glm </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>dec_tree_spec</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1024,12 +1027,19 @@ Computational engine: kknn </code></pre>
 </div>
 </div>
 </section>
-<section id="feature-engineering" class="level2">
-<h2 class="anchored" data-anchor-id="feature-engineering">Feature Engineering</h2>
-<p>After model specification, we do some feature engineering based on the model specification, a good reference for recommended pre-processing or feature engineering techniques for different models can be found <a href="https://www.tmwr.org/pre-proc-table">here</a>. For our analysis, we will have models fitted on our variables without being preprocessed and models fitted with preprocessing.</p>
+<section id="fine-tuning-the-ingredients-feature-engineering" class="level2">
+<h2 class="anchored" data-anchor-id="fine-tuning-the-ingredients-feature-engineering">Fine Tuning the Ingredients: Feature Engineering</h2>
+<p>Now that we’ve chosen our recipe testers (models), let’s take a look at the ingredients (features) we’ll be using. Ideally, we want the ingredients to be in a format that the models can easily understand and use for their predictions. This process of preparing the data is called feature engineering.</p>
+<p>There are many resources available to help with feature engineering, like this one <a href="https://www.tmwr.org/pre-proc-table">link</a>. that provides a reference for different models and recommended pre-processing techniques.</p>
+<p>In our case, we’ll start by testing the models on the features without any preprocessing. Some models, like the ones we’ve chosen, can handle data in its raw form and might not necessarily require specific transformations.</p>
+<p>However, that doesn’t mean there’s no room for improvement! We can explore additional options like:</p>
+<ul>
+<li><p>Log transformation: This can be helpful for features with skewed distributions, making them more symmetrical and easier for some models to work with.</p></li>
+<li><p>Scaled transformations (standardization or normalization): This addresses features with differing scales and units.</p></li>
+</ul>
 <section id="formula-recipe" class="level3">
 <h3 class="anchored" data-anchor-id="formula-recipe">Formula Recipe</h3>
-<p>Here, we assume no preprocessing, even if we ideally need to preprocess for our OLS model</p>
+<p>Here, we assume no preprocessing.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>formula_rec <span class="ot">&lt;-</span> <span class="fu">recipe</span>(</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  quality <span class="sc">~</span> .,</span>
@@ -1057,16 +1067,18 @@ predictor: 11</code></pre>
 </div>
 </div>
 </section>
-<section id="ols-preproc" class="level3">
-<h3 class="anchored" data-anchor-id="ols-preproc">OLS preproc</h3>
+<section id="log_zv-preproc" class="level3">
+<h3 class="anchored" data-anchor-id="log_zv-preproc">log_zv preproc</h3>
 <p>For the second preprocessing, we do the following: - Perform a log transformation on the all predictors, <code>step_log</code>.</p>
-<p>This preprocessing is particularly beneficial to the OLS model</p>
+<ul>
+<li>Scale the variables so they are all on a similar scale.</li>
+</ul>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>ols_rec <span class="ot">&lt;-</span> formula_rec <span class="sc">|&gt;</span> </span>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>log_sc_rec <span class="ot">&lt;-</span> formula_rec <span class="sc">|&gt;</span> </span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_log</span>(<span class="fu">all_predictors</span>()) <span class="sc">|&gt;</span> </span>
 <span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_zv</span>(<span class="fu">all_predictors</span>())</span>
 <span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>ols_rec</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>log_sc_rec</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code></code></pre>
 </div>
@@ -1231,12 +1243,12 @@ Table&nbsp;3: Variables after log transformation and removing zero variance vari
 </figure>
 </div>
 </div>
-<p>It’s likely we get some NAN, NA or Inf values after applying a log transformation as we did, a good way to check for this before fitting our model is to do a quick summary of the preprocessed data.</p>
+<p>After applying a log transformation, it’s common to encounter values like NaN (Not a Number), NA (missing values), or Inf (infinity). To ensure our models can process the data effectively, we should check for these potential issues before fitting the model. A quick summary of the preprocessed data can reveal their presence.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>ols_preprocessed <span class="ot">&lt;-</span> <span class="fu">prep</span>(ols_rec) <span class="sc">|&gt;</span> </span>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>log_sc_preprocessed <span class="ot">&lt;-</span> <span class="fu">prep</span>(log_sc_rec) <span class="sc">|&gt;</span> </span>
 <span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">juice</span>()</span>
 <span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>skimr<span class="sc">::</span><span class="fu">skim</span>(ols_preprocessed) <span class="sc">|&gt;</span> </span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>skimr<span class="sc">::</span><span class="fu">skim</span>(log_sc_preprocessed) <span class="sc">|&gt;</span> </span>
 <span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_raw_html</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div id="tbl-preproc-sum-preview" class="cell quarto-float anchored">
@@ -1446,13 +1458,13 @@ Table&nbsp;4: Preview of Preprocessed data
 </figure>
 </div>
 </div>
-<p><a href="#tbl-preproc-sum-preview" class="quarto-xref">Table&nbsp;4</a> shows that citric_acid is having NaN and Inf values, this would be problematic for models like KNN and the OLS model. We need to rewrite the preprocessing to resolve the issue. Since all the variables have values that are non_unique, the preprocessing step <code>step_zv</code> is not needed.</p>
+<p>Based on <a href="#tbl-preproc-sum-preview" class="quarto-xref">Table&nbsp;4</a>, the citric_acid feature contains NaN and Inf values. These values can cause issues for machine learning models like KNN. To ensure our models can process the data effectively, we need to rewrite the preprocessing to resolve the issue by adding 1 to values of citric_acid.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>ols_rec2 <span class="ot">&lt;-</span> formula_rec <span class="sc">|&gt;</span> </span>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>log_sc_rec2 <span class="ot">&lt;-</span> formula_rec <span class="sc">|&gt;</span> </span>
 <span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_mutate</span>(<span class="at">citric_acid =</span> citric_acid <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
 <span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_log</span>(<span class="fu">all_predictors</span>())</span>
 <span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>ols_rec2 <span class="sc">|&gt;</span> </span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>log_sc_rec2 <span class="sc">|&gt;</span> </span>
 <span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">prep</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">juice</span>() <span class="sc">|&gt;</span> </span>
 <span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>  skimr<span class="sc">::</span><span class="fu">skim</span>() <span class="sc">|&gt;</span> </span>
@@ -1665,20 +1677,23 @@ Table&nbsp;5: Improved preprocessing
 </figure>
 </div>
 </div>
-<p><a href="#tbl-preproc-2" class="quarto-xref">Table&nbsp;5</a> above is without NA, NAN, and Inf. We will be using this for our preprocessing.</p>
+<p>Our efforts in rewriting the preprocessing step have paid off! As shown in <a href="#tbl-preproc-2" class="quarto-xref">Table&nbsp;5</a>, the citric_acid feature is now free of NA, NAN, and Inf. We can now proceed with the model training process using the preprocessed data from <a href="#tbl-preproc-2" class="quarto-xref">Table&nbsp;5</a>.</p>
 </section>
 </section>
 <section id="workflow" class="level2">
 <h2 class="anchored" data-anchor-id="workflow">Workflow</h2>
-<p>To account for all our modeling process, we create our workflow object, to capture, the recipe objects (<em>for preprocessing</em>) and our model specifications. We use the <code>workflow_set()</code> function for this, so we can use both recipe objects on each model</p>
+<p>Now that we’ve chosen our feature engineering techniques and defined the models we’ll be using, it’s time to bring them together. To capture this entire workflow, we’ll create a <code>workflow object</code></p>
+<p>Think of this workflow object like a recipe book. It will hold all the ingredients (the recipe objects specifying the feature engineering steps) and the instructions for each dish (the model specifications). This allows us to easily apply both recipe options (feature engineering approaches) to each model we’re testing.</p>
+<p>The workflow_set() function will be our handy tool for creating this comprehensive recipe book. It ensures we can seamlessly combine different feature engineering choices with various models, allowing for a more thorough analysis.</p>
+<p>This approach allows us to explore different combinations and see which recipe (feature engineering) works best for each model in predicting white wine quality.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>wf_object <span class="ot">&lt;-</span> <span class="fu">workflow_set</span>(</span>
 <span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">preproc =</span> <span class="fu">list</span>(</span>
 <span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">no_preproc =</span> formula_rec,</span>
-<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">log_zv =</span> ols_rec2</span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">log_zv =</span> log_sc_rec2</span>
 <span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>  ),</span>
 <span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">list</span>(</span>
-<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">ols =</span> ols_spec,</span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">glm =</span> glm_spec,</span>
 <span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">dec_tree =</span> dec_tree_spec,</span>
 <span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">rf =</span> rand_for_spec,</span>
 <span id="cb44-10"><a href="#cb44-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">knn =</span> knn_spec</span>
@@ -1687,11 +1702,15 @@ Table&nbsp;5: Improved preprocessing
 <span id="cb44-13"><a href="#cb44-13" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="parameter-tuning" class="level2">
-<h2 class="anchored" data-anchor-id="parameter-tuning">Parameter Tuning</h2>
-<p>Using <code>workflow_map()</code>, we tune the models using a grid search on the resample object which we made earlier. We set <code>verbose = TRUE</code> to see the process</p>
+<section id="finding-the-perfect-settings-parameter-tuning" class="level2">
+<h2 class="anchored" data-anchor-id="finding-the-perfect-settings-parameter-tuning">Finding the Perfect Settings: Parameter Tuning</h2>
+<p>We’ve chosen our models and put together our workflow, but there’s one more step before we can unleash them on the wine data. Each model has its own set of “knobs” we can adjust to fine-tune its performance. These knobs are called “hyperparameters,” and finding the right settings for them can significantly impact how well the model predicts wine quality.</p>
+<p>Imagine you’re baking a cake. You have a recipe to follow (the model in this case), but you can adjust things like the oven temperature or the baking time (the hyperparameters) to get the perfect result. Here, we’ll use a technique called “grid search” to explore different combinations of these hyperparameters for each model.</p>
+<p>To make this process faster, we’ll use a package called <code>doParallel</code>. This helps us leverage multiple processing cores on your computer, essentially dividing the work and speeding things up.</p>
+<p>The <code>workflow_map()</code> function comes in handy again. It allows us to apply the grid search technique to all the models we defined in our workflow. We’ll also set <code>verbose=TRUE</code> during this step, which means the computer will show us the progress (although we won’t include those details in this explanation).</p>
+<p>By exploring different hyperparameter combinations, we aim to find the settings that make each model perform at its best when predicting white wine quality.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">registerDoParallel</span>(<span class="at">cores =</span> <span class="dv">6</span>)</span>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">registerDoParallel</span>(<span class="at">cores =</span> <span class="dv">8</span>)</span>
 <span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>wf_tune_fit <span class="ot">&lt;-</span> <span class="fu">workflow_map</span>(</span>
@@ -1701,78 +1720,19 @@ Table&nbsp;5: Improved preprocessing
 <span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">resamples =</span> wine_folds,</span>
 <span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">11</span>,</span>
 <span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">TRUE</span></span>
-<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i   No tuning parameters. `fit_resamples()` will be attempted</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 1 of 8 resampling: no_preproc_ols</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 1 of 8 resampling: no_preproc_ols (430ms)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 2 of 8 tuning:     no_preproc_dec_tree</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 2 of 8 tuning:     no_preproc_dec_tree (3.5s)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 3 of 8 tuning:     no_preproc_rf</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i Creating pre-processing data to finalize unknown parameter: mtry</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 3 of 8 tuning:     no_preproc_rf (1m 57s)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 4 of 8 tuning:     no_preproc_knn</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 4 of 8 tuning:     no_preproc_knn (1m 16.5s)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i   No tuning parameters. `fit_resamples()` will be attempted</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 5 of 8 resampling: log_zv_ols</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 5 of 8 resampling: log_zv_ols (418ms)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 6 of 8 tuning:     log_zv_dec_tree</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 6 of 8 tuning:     log_zv_dec_tree (4s)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 7 of 8 tuning:     log_zv_rf</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i Creating pre-processing data to finalize unknown parameter: mtry</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 7 of 8 tuning:     log_zv_rf (1m 59.7s)</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>i 8 of 8 tuning:     log_zv_knn</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>✔ 8 of 8 tuning:     log_zv_knn (1m 15.9s)</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">stopImplicitCluster</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">stopImplicitCluster</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="tune-result" class="level2">
 <h2 class="anchored" data-anchor-id="tune-result">Tune Result</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">autoplot</span>(wf_tune_fit) <span class="sc">+</span></span>
-<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">"bottom"</span></span>
-<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">autoplot</span>(wf_tune_fit) <span class="sc">+</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">"bottom"</span></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-tune-result" class="quarto-figure quarto-figure-center quarto-float anchored">
 <figure class="quarto-float quarto-float-fig figure">
@@ -1786,50 +1746,52 @@ Figure&nbsp;5: Tune result
 </div>
 </div>
 </div>
-<p><a href="#fig-tune-result" class="quarto-xref">Figure&nbsp;5</a> gives us a visual representation of how the different models performed. The random forest is performing better if we use rmse and rsquared as the evaluation metric. It is closely followed by a KNN model which is far from it’s group.</p>
+<p><a href="#fig-tune-result" class="quarto-xref">Figure&nbsp;5</a> provides a visual breakdown of how the different models performed in predicting white wine quality. We used two key metrics to evaluate their success: RMSE and R-Squared.</p>
+<p>The clear winner based on these metrics is the Random Forest Model! It achieved the lowest RMSE and highest R-Squared score, indicating both high accuracy (low error) and a strong correlation between its predictions and the actual wine quality score.</p>
+<p>Following closely behind is the KNN (K-Nearest Neighbors) model. While it performs well, there’s a noticeable gap between its performance and Random Forest’s. This suggests that Random Forest might be a more robust choice for predicting wine quality in this particular dataset.</p>
 </section>
 <section id="examining-specific-model-results" class="level2">
 <h2 class="anchored" data-anchor-id="examining-specific-model-results">Examining Specific Model Results</h2>
-<p>It seems the random forest model performed well, we can pull its result out as well as its tuning object.</p>
+<p>As <a href="#fig-tune-result" class="quarto-xref">Figure&nbsp;5</a> revealed, the Random Forest model is the top performer. To gain a better understanding, let’s take a closer look at the tuning process result.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>top_model <span class="ot">&lt;-</span> <span class="fu">rank_results</span>(wf_tune_fit, <span class="at">rank_metric =</span> <span class="st">"rmse"</span>, <span class="at">select_best =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>top_model <span class="sc">|&gt;</span> </span>
-<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(preprocessor, n)) <span class="sc">|&gt;</span> </span>
-<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.config =</span> <span class="fu">str_remove_all</span>(.config, <span class="st">"Preprocessor1_Model"</span>),</span>
-<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">wflow_id =</span> <span class="fu">case_when</span>(</span>
-<span id="cb68-8"><a href="#cb68-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(wflow_id, <span class="st">"no_preproc"</span>) <span class="sc">~</span> <span class="st">"No Preprocessing"</span>,</span>
-<span id="cb68-9"><a href="#cb68-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">.default =</span> <span class="st">"Log transformation"</span></span>
-<span id="cb68-10"><a href="#cb68-10" aria-hidden="true" tabindex="-1"></a>    ),</span>
-<span id="cb68-11"><a href="#cb68-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="fu">str_replace_all</span>(model, <span class="st">"_"</span>, <span class="st">" "</span>),</span>
-<span id="cb68-12"><a href="#cb68-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="fu">str_to_title</span>(model)</span>
-<span id="cb68-13"><a href="#cb68-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb68-14"><a href="#cb68-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(</span>
-<span id="cb68-15"><a href="#cb68-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">id_cols =</span> <span class="fu">c</span>(wflow_id, model, .config, rank),</span>
-<span id="cb68-16"><a href="#cb68-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_from =</span> .metric,</span>
-<span id="cb68-17"><a href="#cb68-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_from =</span> mean</span>
-<span id="cb68-18"><a href="#cb68-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb68-19"><a href="#cb68-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb68-20"><a href="#cb68-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
-<span id="cb68-21"><a href="#cb68-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">wflow_id =</span> <span class="st">"Recipe"</span>,</span>
-<span id="cb68-22"><a href="#cb68-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">.config =</span> <span class="st">"Resample Number"</span>,</span>
-<span id="cb68-23"><a href="#cb68-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="st">"Model Type"</span>,</span>
-<span id="cb68-24"><a href="#cb68-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">rank =</span> <span class="st">"Rank"</span>,</span>
-<span id="cb68-25"><a href="#cb68-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">rmse =</span> <span class="st">"RMSE"</span>,</span>
-<span id="cb68-26"><a href="#cb68-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">rsq =</span> <span class="st">"R-Squared"</span></span>
-<span id="cb68-27"><a href="#cb68-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb68-28"><a href="#cb68-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_spanner</span>(</span>
-<span id="cb68-29"><a href="#cb68-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">columns =</span> rmse<span class="sc">:</span>rsq,</span>
-<span id="cb68-30"><a href="#cb68-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> <span class="st">"Evaluation Metric"</span></span>
-<span id="cb68-31"><a href="#cb68-31" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb68-32"><a href="#cb68-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Top Performing Models"</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb68-33"><a href="#cb68-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">opt_stylize</span>(</span>
-<span id="cb68-34"><a href="#cb68-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="dv">3</span>,</span>
-<span id="cb68-35"><a href="#cb68-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"blue"</span>,</span>
-<span id="cb68-36"><a href="#cb68-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">add_row_striping =</span> <span class="cn">TRUE</span></span>
-<span id="cb68-37"><a href="#cb68-37" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb68-38"><a href="#cb68-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_raw_html</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>top_model <span class="ot">&lt;-</span> <span class="fu">rank_results</span>(wf_tune_fit, <span class="at">rank_metric =</span> <span class="st">"rmse"</span>, <span class="at">select_best =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>top_model <span class="sc">|&gt;</span> </span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(preprocessor, n)) <span class="sc">|&gt;</span> </span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.config =</span> <span class="fu">str_remove_all</span>(.config, <span class="st">"Preprocessor1_Model"</span>),</span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">wflow_id =</span> <span class="fu">case_when</span>(</span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(wflow_id, <span class="st">"no_preproc"</span>) <span class="sc">~</span> <span class="st">"No Preprocessing"</span>,</span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">.default =</span> <span class="st">"Log + scale transformation"</span></span>
+<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb47-11"><a href="#cb47-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="fu">str_replace_all</span>(model, <span class="st">"_"</span>, <span class="st">" "</span>),</span>
+<span id="cb47-12"><a href="#cb47-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="fu">str_to_title</span>(model)</span>
+<span id="cb47-13"><a href="#cb47-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb47-14"><a href="#cb47-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(</span>
+<span id="cb47-15"><a href="#cb47-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">id_cols =</span> <span class="fu">c</span>(wflow_id, model, .config, rank),</span>
+<span id="cb47-16"><a href="#cb47-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_from =</span> .metric,</span>
+<span id="cb47-17"><a href="#cb47-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_from =</span> mean</span>
+<span id="cb47-18"><a href="#cb47-18" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb47-19"><a href="#cb47-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb47-20"><a href="#cb47-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(</span>
+<span id="cb47-21"><a href="#cb47-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">wflow_id =</span> <span class="st">"Recipe"</span>,</span>
+<span id="cb47-22"><a href="#cb47-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">.config =</span> <span class="st">"Resample Number"</span>,</span>
+<span id="cb47-23"><a href="#cb47-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="st">"Model Type"</span>,</span>
+<span id="cb47-24"><a href="#cb47-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">rank =</span> <span class="st">"Rank"</span>,</span>
+<span id="cb47-25"><a href="#cb47-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">rmse =</span> <span class="st">"RMSE"</span>,</span>
+<span id="cb47-26"><a href="#cb47-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">rsq =</span> <span class="st">"R-Squared"</span></span>
+<span id="cb47-27"><a href="#cb47-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb47-28"><a href="#cb47-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_spanner</span>(</span>
+<span id="cb47-29"><a href="#cb47-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">columns =</span> rmse<span class="sc">:</span>rsq,</span>
+<span id="cb47-30"><a href="#cb47-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> <span class="st">"Evaluation Metric"</span></span>
+<span id="cb47-31"><a href="#cb47-31" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb47-32"><a href="#cb47-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Top Performing Models"</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb47-33"><a href="#cb47-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">opt_stylize</span>(</span>
+<span id="cb47-34"><a href="#cb47-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">style =</span> <span class="dv">3</span>,</span>
+<span id="cb47-35"><a href="#cb47-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="st">"blue"</span>,</span>
+<span id="cb47-36"><a href="#cb47-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">add_row_striping =</span> <span class="cn">TRUE</span></span>
+<span id="cb47-37"><a href="#cb47-37" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb47-38"><a href="#cb47-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as_raw_html</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div id="tbl-model-rank" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-model-rank-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
@@ -1868,7 +1830,7 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 <td class="gt_row gt_right" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.5265060</td>
 </tr>
 <tr class="even" style="border-style: none;">
-<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log transformation</td>
+<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log + scale transformation</td>
 <td class="gt_row gt_left gt_striped" headers="model" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Rand Forest</td>
 <td class="gt_row gt_right gt_striped" headers=".config" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">08</td>
 <td class="gt_row gt_right gt_striped" headers="rank" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">2</td>
@@ -1884,7 +1846,7 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 <td class="gt_row gt_right" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.5115739</td>
 </tr>
 <tr class="even" style="border-style: none;">
-<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log transformation</td>
+<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log + scale transformation</td>
 <td class="gt_row gt_left gt_striped" headers="model" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Nearest Neighbor</td>
 <td class="gt_row gt_right gt_striped" headers=".config" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">05</td>
 <td class="gt_row gt_right gt_striped" headers="rank" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">4</td>
@@ -1900,7 +1862,7 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 <td class="gt_row gt_right" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.3182304</td>
 </tr>
 <tr class="even" style="border-style: none;">
-<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log transformation</td>
+<td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Log + scale transformation</td>
 <td class="gt_row gt_left gt_striped" headers="model" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Decision Tree</td>
 <td class="gt_row gt_right gt_striped" headers=".config" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">04</td>
 <td class="gt_row gt_right gt_striped" headers="rank" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">6</td>
@@ -1908,20 +1870,20 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 <td class="gt_row gt_right gt_striped" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">0.3182304</td>
 </tr>
 <tr class="odd" style="border-style: none;">
-<td class="gt_row gt_left" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden;" data-valign="middle">Log transformation</td>
+<td class="gt_row gt_left" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden;" data-valign="middle">Log + scale transformation</td>
 <td class="gt_row gt_left" headers="model" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden;" data-valign="middle">Linear Reg</td>
 <td class="gt_row gt_right" headers=".config" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">1</td>
 <td class="gt_row gt_right" headers="rank" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">7</td>
-<td class="gt_row gt_right" headers="rmse" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.7401251</td>
-<td class="gt_row gt_right" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.2847865</td>
+<td class="gt_row gt_right" headers="rmse" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.7372858</td>
+<td class="gt_row gt_right" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; font-variant-numeric: tabular-nums;" data-valign="middle">0.2896381</td>
 </tr>
 <tr class="even" style="border-style: none;">
 <td class="gt_row gt_left gt_striped" headers="wflow_id" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">No Preprocessing</td>
 <td class="gt_row gt_left gt_striped" headers="model" style="text-align: left; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4;" data-valign="middle" data-bgcolor="#F4F4F4">Linear Reg</td>
 <td class="gt_row gt_right gt_striped" headers=".config" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">1</td>
 <td class="gt_row gt_right gt_striped" headers="rank" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">8</td>
-<td class="gt_row gt_right gt_striped" headers="rmse" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">0.7460818</td>
-<td class="gt_row gt_right gt_striped" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">0.2736076</td>
+<td class="gt_row gt_right gt_striped" headers="rmse" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">0.7431961</td>
+<td class="gt_row gt_right gt_striped" headers="rsq" style="text-align: right; border-style: none; padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: dashed; border-top-width: 1px; border-top-color: #929292; border-left-style: none; border-left-width: 1px; border-left-color: #929292; border-right-style: none; border-right-width: 1px; border-right-color: #929292; vertical-align: middle; overflow-x: hidden; background-color: #F4F4F4; font-variant-numeric: tabular-nums;" data-valign="middle" data-bgcolor="#F4F4F4">0.2783234</td>
 </tr>
 </tbody>
 </table>
@@ -1933,7 +1895,13 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 </figure>
 </div>
 </div>
-<p><a href="#tbl-model-rank" class="quarto-xref">Table&nbsp;6</a> gives a better information on which model performed best, it shows if it the model underwent preprocessing or not and tells us the the resample from which the model was selected from.</p>
+<p><a href="#tbl-model-rank" class="quarto-xref">Table&nbsp;6</a> offers a comprehensive overview of each model’s performance, providing valuable insights beyond the visual representation in <a href="#fig-tune-result" class="quarto-xref">Figure&nbsp;5</a>. Here’s what we can learn from this table:</p>
+<ul>
+<li>Model Performance: It clearly shows the best performing model based on the chosen evaluation metrics (e.g., RMSE, R-squared). This allows for a quick comparison and identification of the champion model.</li>
+<li>Preprocessing Status: The table indicates whether each model was trained on data that underwent preprocessing (like feature scaling) or not. This information helps us understand if preprocessing played a role in the model’s performance.</li>
+<li>Resample Selection: It specifies the resample object used to select the best performing model version during the tuning process. This provides context about the training and validation data used for each model.</li>
+</ul>
+<p>Preprocessing does not improve the performance of all models except the Generalized Linear Model which showed slight improvement.</p>
 <p>Next we get the workflow object and finalize the model</p>
 </section>
 </section>
@@ -1944,10 +1912,10 @@ Table&nbsp;6: Ranks of the model, random forest without preprocessing is ranked 
 <li>extract the workflow object of the best model which id is <code>no_preproc_rf</code></li>
 </ol>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>rf_model <span class="ot">&lt;-</span> wf_tune_fit <span class="sc">|&gt;</span> </span>
-<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_workflow</span>(<span class="at">id =</span> <span class="st">"no_preproc_rf"</span>)</span>
-<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>rf_model</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>rf_model <span class="ot">&lt;-</span> wf_tune_fit <span class="sc">|&gt;</span> </span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_workflow</span>(<span class="at">id =</span> <span class="st">"no_preproc_rf"</span>)</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>rf_model</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>══ Workflow ════════════════════════════════════════════════════════════════════
 Preprocessor: Recipe
@@ -1979,11 +1947,11 @@ Computational engine: ranger </code></pre>
 Table&nbsp;7: Best Tuning Parameter
 </figcaption>
 <div aria-describedby="tbl-get-best-workflow-tune-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a>rf_workflow_res <span class="ot">&lt;-</span> wf_tune_fit <span class="sc">|&gt;</span> </span>
-<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_workflow_set_result</span>(<span class="st">"no_preproc_rf"</span>)</span>
-<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb71-4"><a href="#cb71-4" aria-hidden="true" tabindex="-1"></a>best_tune <span class="ot">&lt;-</span> <span class="fu">select_best</span>(rf_workflow_res, <span class="at">metric =</span> <span class="st">"rmse"</span>)</span>
-<span id="cb71-5"><a href="#cb71-5" aria-hidden="true" tabindex="-1"></a>best_tune</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>rf_workflow_res <span class="ot">&lt;-</span> wf_tune_fit <span class="sc">|&gt;</span> </span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_workflow_set_result</span>(<span class="st">"no_preproc_rf"</span>)</span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>best_tune <span class="ot">&lt;-</span> <span class="fu">select_best</span>(rf_workflow_res, <span class="at">metric =</span> <span class="st">"rmse"</span>)</span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>best_tune</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 1 × 3
    mtry min_n .config              
@@ -1997,12 +1965,12 @@ Table&nbsp;7: Best Tuning Parameter
 <li>The best tuning parameter is seen in <a href="#tbl-get-best-workflow-tune" class="quarto-xref">Table&nbsp;7</a>. We use these values of the parameter with our recommended model with its recommended preprocessing and use the <code>finalize_workflow()</code> function to fit our final workflow.</li>
 </ol>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a>recommended_workflow <span class="ot">&lt;-</span> <span class="fu">finalize_workflow</span>(</span>
-<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a>  rf_model,</span>
-<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">parameters =</span> best_tune</span>
-<span id="cb73-4"><a href="#cb73-4" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb73-5"><a href="#cb73-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb73-6"><a href="#cb73-6" aria-hidden="true" tabindex="-1"></a>recommended_workflow</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>recommended_workflow <span class="ot">&lt;-</span> <span class="fu">finalize_workflow</span>(</span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  rf_model,</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">parameters =</span> best_tune</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>recommended_workflow</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>══ Workflow ════════════════════════════════════════════════════════════════════
 Preprocessor: Recipe
@@ -2030,44 +1998,44 @@ Computational engine: ranger </code></pre>
 <li>The last step involves fitting the workflow recommended from our analysis to the split data set.</li>
 </ol>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">registerDoParallel</span>(<span class="at">cores =</span> <span class="dv">6</span>)</span>
-<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a>final_model <span class="ot">&lt;-</span> <span class="fu">last_fit</span>(</span>
-<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">object =</span> recommended_workflow,</span>
-<span id="cb75-4"><a href="#cb75-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">split =</span> wine_split</span>
-<span id="cb75-5"><a href="#cb75-5" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb75-6"><a href="#cb75-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb75-7"><a href="#cb75-7" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">stopImplicitCluster</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">registerDoParallel</span>(<span class="at">cores =</span> <span class="dv">6</span>)</span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>final_model <span class="ot">&lt;-</span> <span class="fu">last_fit</span>(</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">object =</span> recommended_workflow,</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">split =</span> wine_split</span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a>doParallel<span class="sc">::</span><span class="fu">stopImplicitCluster</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="model-evaluation" class="level1">
 <h1>Model Evaluation</h1>
 <p>We can see how well the model performs on the test data. We applied <code>ceiling()</code> function to round our predictions as we they are count data.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb76"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a>final_model <span class="sc">|&gt;</span> </span>
-<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">collect_predictions</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb76-3"><a href="#cb76-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb76-4"><a href="#cb76-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">.pred =</span> <span class="fu">case_when</span>(</span>
-<span id="cb76-5"><a href="#cb76-5" aria-hidden="true" tabindex="-1"></a>      .pred <span class="sc">&lt;</span> <span class="dv">5</span> <span class="sc">~</span> <span class="fu">floor</span>(.pred),</span>
-<span id="cb76-6"><a href="#cb76-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">.default =</span> <span class="fu">ceiling</span>(.pred)</span>
-<span id="cb76-7"><a href="#cb76-7" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb76-8"><a href="#cb76-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb76-9"><a href="#cb76-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="at">observed =</span> quality, <span class="at">predicted =</span> .pred) <span class="sc">|&gt;</span> </span>
-<span id="cb76-10"><a href="#cb76-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(</span>
-<span id="cb76-11"><a href="#cb76-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">cols =</span> <span class="fu">c</span>(predicted, observed),</span>
-<span id="cb76-12"><a href="#cb76-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_to =</span> <span class="st">"type"</span>,</span>
-<span id="cb76-13"><a href="#cb76-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_to =</span> <span class="st">"value"</span></span>
-<span id="cb76-14"><a href="#cb76-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
-<span id="cb76-15"><a href="#cb76-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(value, <span class="at">fill =</span> type)) <span class="sc">+</span></span>
-<span id="cb76-16"><a href="#cb76-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"dodge"</span>) <span class="sc">+</span></span>
-<span id="cb76-17"><a href="#cb76-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb76-18"><a href="#cb76-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Quality"</span>,</span>
-<span id="cb76-19"><a href="#cb76-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Count"</span>,</span>
-<span id="cb76-20"><a href="#cb76-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Model Performnce on Test Data"</span>,</span>
-<span id="cb76-21"><a href="#cb76-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Model do not capture low values (3, 4, and 5) properly"</span>,</span>
-<span id="cb76-22"><a href="#cb76-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Value"</span></span>
-<span id="cb76-23"><a href="#cb76-23" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb76-24"><a href="#cb76-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>() <span class="sc">+</span></span>
-<span id="cb76-25"><a href="#cb76-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>final_model <span class="sc">|&gt;</span> </span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">collect_predictions</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">.pred =</span> <span class="fu">case_when</span>(</span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>      .pred <span class="sc">&lt;</span> <span class="dv">5</span> <span class="sc">~</span> <span class="fu">floor</span>(.pred),</span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">.default =</span> <span class="fu">ceiling</span>(.pred)</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="at">observed =</span> quality, <span class="at">predicted =</span> .pred) <span class="sc">|&gt;</span> </span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(</span>
+<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">cols =</span> <span class="fu">c</span>(predicted, observed),</span>
+<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">names_to =</span> <span class="st">"type"</span>,</span>
+<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">values_to =</span> <span class="st">"value"</span></span>
+<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span> </span>
+<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(value, <span class="at">fill =</span> type)) <span class="sc">+</span></span>
+<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">position =</span> <span class="st">"dodge"</span>) <span class="sc">+</span></span>
+<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Quality"</span>,</span>
+<span id="cb55-19"><a href="#cb55-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Count"</span>,</span>
+<span id="cb55-20"><a href="#cb55-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Model Performnce on Test Data"</span>,</span>
+<span id="cb55-21"><a href="#cb55-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">"Model do not capture low values (3, 4, and 5) properly"</span>,</span>
+<span id="cb55-22"><a href="#cb55-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill =</span> <span class="st">"Value"</span></span>
+<span id="cb55-23"><a href="#cb55-23" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb55-24"><a href="#cb55-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_d</span>() <span class="sc">+</span></span>
+<span id="cb55-25"><a href="#cb55-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2081,38 +2049,39 @@ Computational engine: ranger </code></pre>
 <h1>Feature Importance</h1>
 <p>Feature importance sheds light on the factors that are driving the decisions which our model makes and the one which might be irrelevant. This can provide a lot of valuable insights on what truly matters to white wine consumers. We can investigate this using the <code>vip</code> library.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(vip)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>
-Attaching package: 'vip'</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>The following object is masked from 'package:utils':
-
-    vi</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb80"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a>final_model <span class="sc">|&gt;</span></span>
-<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit_parsnip</span>() <span class="sc">|&gt;</span> </span>
-<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">vip</span>(</span>
-<span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">num_features =</span> <span class="dv">10</span>,</span>
-<span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">geom =</span> <span class="st">"col"</span>,</span>
-<span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">aesthetics =</span> <span class="fu">list</span>(</span>
-<span id="cb80-7"><a href="#cb80-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">fill =</span> <span class="st">"tan"</span>,</span>
-<span id="cb80-8"><a href="#cb80-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">col =</span> <span class="st">"orange"</span>,</span>
-<span id="cb80-9"><a href="#cb80-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">alpha =</span> .<span class="dv">6</span></span>
-<span id="cb80-10"><a href="#cb80-10" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb80-11"><a href="#cb80-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb80-12"><a href="#cb80-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(vip)</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>final_model <span class="sc">|&gt;</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit_parsnip</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">vip</span>(</span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">num_features =</span> <span class="dv">10</span>,</span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">geom =</span> <span class="st">"col"</span>,</span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">aesthetics =</span> <span class="fu">list</span>(</span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">fill =</span> <span class="st">"tan"</span>,</span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>      <span class="at">col =</span> <span class="st">"orange"</span>,</span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>      <span class="at">alpha =</span> .<span class="dv">6</span></span>
+<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="index_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="960"></p>
+<div id="fig-feature-importance" class="quarto-figure quarto-figure-center quarto-float anchored" width="960">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-feature-importance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="index_files/figure-html/fig-feature-importance-1.png" id="fig-feature-importance" class="img-fluid figure-img" width="960">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig quarto-uncaptioned" id="fig-feature-importance-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6
+</figcaption>
 </figure>
 </div>
 </div>
 </div>
 <p>Apparently, alcohol is the number one feature.</p>
-<p>#Conclusion For this analysis we tried to model the quality of white wine using some chemical components of wine. Four models, OLS, decision tree, random forest and KNN were trained, compared, and ranked. The top ranking model was random forest. The model made good predictions, but this could have been limited as the quality provided are discrete, while a continuous regression model was fitted to predict these qualities. This can lead to some errors. Notwithstanding is still a very useful one with good predictive capabilites.</p>
+<p>#Conclusion This analysis explored the use of machine learning to predict white wine quality based on its chemical components. We compared four models: Generalized Linear Model (GLM), Decision Tree, Random Forest, and K-Nearest Neighbors (KNN). Through training and evaluation, the Random Forest model emerged as the top performer, demonstrating strong predictive capabilities.</p>
+<p>It’s important to acknowledge a potential limitation. While Random Forest excels at continuous predictions, the actual quality scores might be assigned discrete labels (e.g., 6 = good, 8 = excellent). This difference in representation between the model’s predictions and the actual quality scores could lead to minor inaccuracies.</p>
+<p>Despite this consideration, the Random Forest model has proven to be a powerful tool for predicting wine quality within the 0-10 range. Future explorations could involve:</p>
+<p>Classification Models: Investigating models specifically designed for predicting discrete quality categories (e.g., good, bad) might provide even more accurate results when directly aligned with the scoring system. Feature Engineering: Exploring alternative feature engineering techniques could potentially further refine the model’s ability to capture the nuances of wine quality based on its chemical components.</p>
+<p>This analysis has successfully demonstrated the potential of machine learning for white wine quality prediction. By understanding the strengths and limitations of different models and data considerations, we can continue to refine our approach and develop even more accurate models for wine quality assessment.</p>
 <p><a href="https://olamideadu.com">homepage</a></p>
 </section>
 
