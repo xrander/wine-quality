@@ -755,7 +755,9 @@ rf_workflow_res <- wf_tune_fit |>
   extract_workflow_set_result("no_preproc_rf")
 
 best_tune <- select_best(rf_workflow_res, metric = "rmse")
-best_tune
+best_tune |> 
+  gt() |> 
+  as_raw_html()
 ```
 
 3.   The best tuning parameter is seen in @tbl-get-best-workflow-tune. We use these values of the parameter with our recommended model with its recommended preprocessing and use the `finalize_workflow()` function to fit our final workflow.
@@ -841,7 +843,7 @@ final_model |>
 ```
 Apparently, alcohol is the number one feature. 
 
-#Conclusion
+# Conclusion
 This analysis explored the use of machine learning to predict white wine quality based on its chemical components. We compared four models: Generalized Linear Model (GLM), Decision Tree, Random Forest, and K-Nearest Neighbors (KNN). Through training and evaluation, the Random Forest model emerged as the top performer, demonstrating strong predictive capabilities.
 
 It's important to acknowledge a potential limitation. While Random Forest excels at continuous predictions, the actual quality scores might be assigned discrete labels (e.g., 6 = good, 8 = excellent). This difference in representation between the model's predictions and the actual quality scores could lead to minor inaccuracies.
